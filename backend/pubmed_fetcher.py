@@ -10,8 +10,9 @@ from Bio import Entrez
 from dataclasses import dataclass, field
 
 Entrez.email = os.getenv("NCBI_EMAIL", "msl-copilot@example.com")
-Entrez.api_key = os.getenv("NCBI_API_KEY", "")
-
+_ncbi_api_key = os.getenv("NCBI_API_KEY", "")
+if _ncbi_api_key:
+    Entrez.api_key = _ncbi_api_key
 
 @dataclass
 class PubMedArticle:
