@@ -43,18 +43,23 @@ class PubMedArticle:
 
 def search_pubmed(query: str, max_results: int = 20,
                  date_range: Optional[tuple] = None, sort_by: str = "relevance") -> list:
+    sort_map = {"relevance": "relevance", "pub_date": "pub+date"}
+    mindate, maxdate = None, None
     if date_range:
         start, end = date_range
-    mindate, maxdate = str(start), str(end)
-                     else:
-        mindate, maxdate = None, None
-    sort_map = {"relevance": "relevance", "pub_date": "pub+date"}
+        mindate, maxdate = str(start), str(end)
     try:
-        handle = Entrez.esearch(db="pubmed", term=query,
-                                retmax=min(max_results, 100),
-                                sort=sort_map.get(sort_by, "relevance"))
-                                    datetype="pdat",
-                                    mindate=mindate, maxdate=maxdate
+        kwargs = dict(
+            db="pubmed",
+            term=query,
+            retmax=min(max_results, 100),
+            sort=sort_map.get(sort_by, "relevance")
+        )
+        if mindate and maxdate:
+            kwargs["datetype"] = "pdat"
+            kwargs["mindate"] = mindate
+            kwargs["maxdate"] = maxdate
+        handle = Entrez.esearch(**kwargs)
         record = Entrez.read(handle)
         handle.close()
         return record.get("IdList", [])
@@ -90,17 +95,19 @@ def _parse_article(record: dict) -> Optional[PubMedArticle]:
         article = medline["Article"]
         pmid = str(medline["PMID"])
         title = str(article.get("ArticleTitle", "No title"))
-        abstract_data = article.get("Abstract", {})
-        abstract_texts = abstract_data.get("AbstractText", [])
-        if isinstance(abstract_texts, list):
-            abstract = " ".join(str(t) for t in abstract_texts)
+        abstract_obj = article.get("Abstract", {})
+        if isinstance(abstract_obj, dict):
+            abstract_texts = abstract_obj.get("AbstractText", [])
+            if isinstance(abstract_texts, list):
+                abstract = " ".join(str(t) for t in abstract_texts)
+            else:
+                abstract = str(abstract_texts)
         else:
-            abstract = str(abstract_texts)
-        author_list = article.get("AuthorList", [])
+            abstract = ""
         authors = []
-        for a in author_list:
-            last = a.get("LastName", "")
-            fore = a.get("ForeName", "")
+        for auth in article.get("AuthorList", []):
+            last = auth.get("LastName", "")
+            fore = auth.get("ForeName", "")
             if last:
                 authors.append(f"{last} {fore}".strip())
         journal_info = article.get("Journal", {})
@@ -115,7 +122,7 @@ def _parse_article(record: dict) -> Optional[PubMedArticle]:
                 doi = str(id_item)
                 break
         kw_list = medline.get("KeywordList", [])
-        keywords = [str(k) for k in kw_list[0]] if kw_list else []
+        keywords = [str(k) for k in kw_list[0] if kw_list else []]
         mesh_terms = [str(m["DescriptorName"]) for m in medline.get("MeshHeadingList", [])]
         return PubMedArticle(pmid=pmid, title=title, abstract=abstract,
                              authors=authors, journal=journal, pub_date=pub_date,
@@ -127,8 +134,7 @@ def _parse_article(record: dict) -> Optional[PubMedArticle]:
 
 
 def search_and_fetch(query: str, max_results: int = 20,
-                     date_range: Optional[tuple] = None,
-                     sort_by: str = "relevance") -> list:
+                    date_range: Optional[tuple] = None, sort_by: str = "relevance") -> list:
     """Convenience wrapper: search then fetch."""
     pmids = search_pubmed(query, max_results, date_range, sort_by)
     return fetch_articles(pmids)
@@ -140,6 +146,6 @@ THERAPEUTIC_AREA_QUERIES = {
     "Neurology": "neurology[MeSH] OR neurological disorders[MeSH]",
     "Cardiology": "cardiovascular diseases[MeSH] OR heart failure[MeSH]",
     "Immunology": "immunology[MeSH] OR autoimmune diseases[MeSH]",
-    "Rare Disease": "rare diseases[MeSH] OR orphan drug[tiab]",
+    "Rare Disease": "rare diseases[MeSH] OR orphan drugs[tiab]",
     "GBM / Neuro-Oncology": "glioblastoma[MeSH] OR glioma[MeSH] OR brain neoplasms[MeSH]",
 }
