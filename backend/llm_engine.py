@@ -85,3 +85,23 @@ def extract_insights(text: str, focus_area: Optional[str] = None) -> str:
 - Adding OpenAI API key
 - Implementing actual API integration
 """
+
+
+def build_rag_index(articles: list) -> dict:
+    """Mock RAG index builder."""
+    return {"index": "mock_index", "articles": len(articles)}
+
+
+def ask_literature(question: str, index: dict = None, model: str = "gpt-4") -> str:
+    """Mock literature Q&A."""
+    return f"""**Answer (Demo Mode)**
+
+Question: {question}
+
+This is a demonstration response. In the full version, this would query your saved
+literature index using RAG and return AI-generated answers grounded in the retrieved papers.
+
+**To enable real answers:**
+1. Ensure your OpenAI API key is set
+2. Build a literature index by searching and saving articles first
+"""
