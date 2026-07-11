@@ -122,7 +122,7 @@ def _parse_article(record: dict) -> Optional[PubMedArticle]:
                 doi = str(id_item)
                 break
         kw_list = medline.get("KeywordList", [])
-        keywords = [str(k) for k in kw_list[0] if kw_list else []]
+        keywords = [str(k) for k in (kw_list[0] if kw_list else [])]
         mesh_terms = [str(m["DescriptorName"]) for m in medline.get("MeshHeadingList", [])]
         return PubMedArticle(pmid=pmid, title=title, abstract=abstract,
                              authors=authors, journal=journal, pub_date=pub_date,
