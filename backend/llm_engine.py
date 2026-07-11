@@ -105,3 +105,15 @@ literature index using RAG and return AI-generated answers grounded in the retri
 1. Ensure your OpenAI API key is set
 2. Build a literature index by searching and saving articles first
 """
+
+
+def extract_insights_from_notes(notes: str, kol_name: str = "", model: str = "gpt-4") -> dict:
+    """Extract structured insights from field interaction notes."""
+    return {
+        "key_themes": ["Clinical efficacy", "Safety profile", "Unmet needs"],
+        "sentiment": "positive",
+        "follow_up_actions": ["Send follow-up literature", "Schedule next meeting"],
+        "scientific_interests": ["Mechanism of action", "Real-world evidence"],
+        "unmet_needs": ["Better biomarkers", "Long-term safety data"],
+        "summary": f"Demo insights extracted from notes for {kol_name}. Enable real AI for detailed analysis."
+    }
