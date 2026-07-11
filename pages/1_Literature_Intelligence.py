@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from backend.pubmed_fetcher import search_and_fetch, THERAPEUTIC_AREA_QUERIES
 from backend.llm_engine import summarize_article, build_rag_index, ask_literature
 from backend.compliance_filter import scan_text, get_compliance_badge, MSL_BEST_PRACTICES
-from backend.database import init_db, save_article
+from backend.database import init_db, save_article, get_saved_articles
 
 init_db()
 
@@ -23,7 +23,7 @@ with col1:
                           help="Supports full PubMed/Entrez syntax")
 with col2:
     ta_preset = st.selectbox("Or pick therapeutic area",
-                             options=["— Custom —"] + list(THERAPEUTIC_AREA_QUERIES.keys()))
+                              options=["— Custom —"] + list(THERAPEUTIC_AREA_QUERIES.keys()))
 
 col3, col4, col5 = st.columns(3)
 with col3:
@@ -58,7 +58,12 @@ if search_btn:
 
 if "articles" in st.session_state and st.session_state["articles"]:
     articles = st.session_state["articles"]
-    tab1, tab2, tab3 = st.tabs(["📝 Article List", "🧠 AI Summaries", "💬 Ask the Literature"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📝 Article List",
+        "🧠 AI Summaries",
+        "💬 Ask the Literature",
+        "🔖 Saved Library"
+    ])
 
     # --- Tab 1: Article List ---
     with tab1:
@@ -98,18 +103,15 @@ if "articles" in st.session_state and st.session_state["articles"]:
             }[x]
         )
         focus_area = st.text_input("Focus on (optional)", placeholder="e.g., safety profile, mechanism of action")
-
         if "summaries" not in st.session_state:
             st.session_state["summaries"] = {}
-
         for i, art in enumerate(articles[:10]):
             with st.expander(f"Summarize: {art['title'][:80]}"):
                 btn_key = f"sum_{i}"
                 if st.button("Generate Summary", key=btn_key):
                     with st.spinner("Generating AI summary with GPT-4o..."):
                         summary = summarize_article(
-                            art['title'],
-                            art['abstract'],
+                            art['title'], art['abstract'],
                             focus=focus_area or None,
                             style=summary_style
                         )
@@ -121,7 +123,6 @@ if "articles" in st.session_state and st.session_state["articles"]:
                             "badge_label": badge_label,
                             "flags": report.flags,
                         }
-
                 if i in st.session_state.get("summaries", {}):
                     saved = st.session_state["summaries"][i]
                     st.markdown("**AI Summary:**")
@@ -145,7 +146,6 @@ if "articles" in st.session_state and st.session_state["articles"]:
                         st.session_state["last_answer"] = result
                     except Exception as e:
                         st.error(f"Error: {e}")
-
             if "last_answer" in st.session_state:
                 result = st.session_state["last_answer"]
                 st.markdown("**Answer:**")
@@ -154,6 +154,62 @@ if "articles" in st.session_state and st.session_state["articles"]:
                     st.markdown("**Sources:**")
                     for src in result["sources"]:
                         st.markdown(f"- [{src['title'][:80]}]({src['url']})")
+
+    # --- Tab 4: Saved Library ---
+    with tab4:
+        st.subheader("🔖 Saved Article Library")
+        st.caption("Articles you have saved for later reference.")
+        saved = get_saved_articles()
+        if not saved:
+            st.info("No articles saved yet. Use the 'Save to Library' button in the Article List tab.")
+        else:
+            st.success(f"**{len(saved)}** article(s) in your library")
+            search_lib = st.text_input("🔍 Search library", placeholder="Filter by title or author...")
+            if search_lib:
+                saved = [a for a in saved if search_lib.lower() in (a.get('title', '') + a.get('authors', '')).lower()]
+            for i, art in enumerate(saved):
+                title = art.get('title', 'Unknown Title')
+                with st.expander(f"📄 {title[:100]}"):
+                    c1, c2 = st.columns([3, 1])
+                    with c1:
+                        st.markdown(f"**Authors:** {art.get('authors', 'N/A')}")
+                        st.markdown(f"**Journal:** {art.get('journal', 'N/A')} | **Date:** {art.get('pub_date', 'N/A')}")
+                        if art.get('doi'):
+                            st.markdown(f"**DOI:** {art['doi']}")
+                        if art.get('abstract'):
+                            st.markdown("**Abstract:**")
+                            st.write(art['abstract'])
+                    with c2:
+                        if art.get('url'):
+                            st.link_button("🔗 PubMed", art['url'])
+                        saved_at = art.get('saved_at', '')
+                        if saved_at:
+                            st.caption(f"Saved: {saved_at[:10]}")
+            df_saved = pd.DataFrame(saved)
+            st.download_button(
+                "📥 Export Library to CSV",
+                df_saved.to_csv(index=False),
+                "saved_articles.csv",
+                "text/csv"
+            )
+
+else:
+    st.info("👆 Enter a search query above and click **Search PubMed** to get started.")
+    # Show saved library even without active search
+    st.divider()
+    st.subheader("🔖 Your Saved Article Library")
+    saved = get_saved_articles()
+    if not saved:
+        st.info("No articles saved yet. Search and save articles to build your library.")
+    else:
+        st.success(f"**{len(saved)}** article(s) saved")
+        for art in saved:
+            title = art.get('title', 'Unknown Title')
+            with st.expander(f"📄 {title[:100]}"):
+                st.markdown(f"**Authors:** {art.get('authors', 'N/A')}")
+                st.markdown(f"**Journal:** {art.get('journal', 'N/A')} | **Date:** {art.get('pub_date', 'N/A')}")
+                if art.get('url'):
+                    st.link_button("🔗 View on PubMed", art['url'])
 
 with st.sidebar:
     st.markdown("### 📋 MSL Best Practices")
