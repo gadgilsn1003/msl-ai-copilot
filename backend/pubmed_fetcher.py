@@ -45,12 +45,16 @@ def search_pubmed(query: str, max_results: int = 20,
                  date_range: Optional[tuple] = None, sort_by: str = "relevance") -> list:
     if date_range:
         start, end = date_range
-        query += f" AND {start}:{end}[dp]"
+    mindate, maxdate = str(start), str(end)
+                     else:
+        mindate, maxdate = None, None
     sort_map = {"relevance": "relevance", "pub_date": "pub+date"}
     try:
         handle = Entrez.esearch(db="pubmed", term=query,
                                 retmax=min(max_results, 100),
                                 sort=sort_map.get(sort_by, "relevance"))
+                                    datetype="pdat",
+                                    mindate=mindate, maxdate=maxdate
         record = Entrez.read(handle)
         handle.close()
         return record.get("IdList", [])
