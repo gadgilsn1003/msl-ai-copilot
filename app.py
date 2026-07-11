@@ -1,5 +1,5 @@
 """
-🧬 MSL AI Copilot — Main Entry Point
+🧬 MSL AI Copilot – Main Entry Point
 
 Production-ready landing page with professional branding,
 feature highlights, and navigation to all three modules.
@@ -12,9 +12,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# ============================================================================
+# =================================================================================
 # PAGE CONFIG
-# ============================================================================
+# =================================================================================
 st.set_page_config(
     page_title="MSL AI Copilot",
     page_icon="🧬",
@@ -22,69 +22,64 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ============================================================================
-# CUSTOM CSS
-# ============================================================================
+# =================================================================================
+# CUSTOM CSS - MODERN PREMIUM DESIGN
+# =================================================================================
 st.markdown("""
 <style>
     /* Hero section */
     .hero-container {
-        background: linear-gradient(135deg, #0066CC 0%, #004C99 100%);
-        padding: 60px 40px;
-        border-radius: 16px;
-        margin-bottom: 40px;
+        background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 50%, #0369A1 100%);
+        padding: 80px 60px;
+        border-radius: 24px;
+        margin-bottom: 60px;
         color: white;
         text-align: center;
+        box-shadow: 0 20px 60px rgba(14, 165, 233, 0.3);
+        position: relative;
+        overflow: hidden;
     }
+    
+    .hero-container::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+    
     .hero-title {
-        font-size: 48px;
+        font-size: 56px;
         font-weight: 800;
         margin-bottom: 16px;
         line-height: 1.2;
-    }
-    .hero-subtitle {
-        font-size: 20px;
-        opacity: 0.95;
-        margin-bottom: 8px;
-    }
-    .hero-tagline {
-        font-size: 16px;
-        opacity: 0.85;
+        position: relative;
+        z-index: 1;
     }
     
-    /* Feature cards */
-    .feature-card {
-        background: white;
-        padding: 32px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border-left: 5px solid #0066CC;
-        margin-bottom: 24px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .feature-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    }
-    .feature-icon {
-        font-size: 40px;
-        margin-bottom: 16px;
-    }
-    .feature-title {
+    .hero-subtitle {
         font-size: 24px;
-        font-weight: 700;
-        color: #1a2332;
+        opacity: 0.95;
         margin-bottom: 12px;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
     }
-    .feature-description {
-        font-size: 15px;
-        color: #6b7280;
-        line-height: 1.6;
-        margin-bottom: 16px;
-    }
-    .feature-benefits {
-        font-size: 14px;
-        color: #374151;
+    
+    .hero-tagline {
+        font-size: 18px;
+        opacity: 0.85;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
     }
     
     /* Stats section */
@@ -92,286 +87,374 @@ st.markdown("""
         display: flex;
         justify-content: space-around;
         margin: 40px 0;
-        padding: 32px;
-        background: #f8fafc;
-        border-radius: 12px;
-    }
-    .stat-item {
-        text-align: center;
-    }
-    .stat-number {
-        font-size: 36px;
-        font-weight: 800;
-        color: #0066CC;
-    }
-    .stat-label {
-        font-size: 14px;
-        color: #6b7280;
-        text-transform: uppercase;
-        margin-top: 8px;
+        gap: 24px;
+        flex-wrap: wrap;
     }
     
-    /* CTA buttons */
-    .cta-button {
-        display: inline-block;
-        background: white;
-        color: #0066CC;
-        padding: 12px 32px;
-        border-radius: 8px;
+    .stat-box {
+        background: linear-gradient(145deg, #ffffff, #f8fafc);
+        padding: 32px;
+        border-radius: 20px;
+        text-align: center;
+        flex: 1;
+        min-width: 200px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid rgba(14, 165, 233, 0.1);
+    }
+    
+    .stat-box:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(14, 165, 233, 0.15);
+    }
+    
+    .stat-number {
+        font-size: 48px;
+        font-weight: 800;
+        color: #0EA5E9;
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+    
+    .stat-label {
+        font-size: 14px;
+        color: #64748b;
         font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
-        border: 2px solid white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
-    .cta-button:hover {
-        background: transparent;
+    
+    /* Feature cards */
+    .feature-card {
+        background: linear-gradient(145deg, #ffffff, #f8fafc);
+        padding: 40px;
+        border-radius: 20px;
+        margin-bottom: 24px;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(14, 165, 233, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, #0EA5E9, #0369A1);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 50px rgba(14, 165, 233, 0.2);
+        border-color: #0EA5E9;
+    }
+    
+    .feature-card:hover::before {
+        opacity: 1;
+    }
+    
+    .feature-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        display: block;
+    }
+    
+    .feature-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 16px;
+        line-height: 1.3;
+    }
+    
+    .feature-description {
+        font-size: 16px;
+        color: #475569;
+        line-height: 1.7;
+        margin-bottom: 20px;
+    }
+    
+    .feature-list {
+        margin: 16px 0;
+        padding-left: 0;
+        list-style: none;
+    }
+    
+    .feature-list li {
+        padding: 8px 0;
+        color: #64748b;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .feature-list li:before {
+        content: "✓";
+        color: #0EA5E9;
+        font-weight: bold;
+        margin-right: 12px;
+        font-size: 18px;
+    }
+    
+    /* Section headers */
+    .section-header {
+        text-align: center;
+        margin: 60px 0 40px 0;
+    }
+    
+    .section-title {
+        font-size: 42px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 12px;
+    }
+    
+    .section-subtitle {
+        font-size: 18px;
+        color: #64748b;
+        font-weight: 400;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    }
+    
+    .sidebar-module {
+        padding: 12px 16px;
+        margin: 8px 0;
+        border-radius: 12px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .sidebar-module:hover {
+        background: rgba(14, 165, 233, 0.1);
+        transform: translateX(4px);
+    }
+    
+    /* Footer */
+    .footer {
+        text-align: center;
+        padding: 40px 20px;
+        margin-top: 80px;
+        border-top: 2px solid #e2e8f0;
+        color: #64748b;
+    }
+    
+    .footer-strong {
+        color: #0EA5E9;
+        font-weight: 600;
+    }
+    
+    /* Button enhancements */
+    .stButton > button {
+        background: linear-gradient(135deg, #0EA5E9, #0284C7);
         color: white;
-        border-color: white;
+        border: none;
+        padding: 16px 32px;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+        width: 100%;
     }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(14, 165, 233, 0.4);
+        background: linear-gradient(135deg, #0284C7, #0369A1);
+    }
+    
+    /* Hide default Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# SIDEBAR
-# ============================================================================
+# =================================================================================
+# SIDEBAR - NAVIGATION
+# =================================================================================
 with st.sidebar:
-    st.image(
-        "https://img.icons8.com/fluency/96/medical-doctor.png",
-        width=80,
-    )
-    st.title("MSL AI Copilot")
-    st.caption("AI-powered intelligence for Medical Science Liaisons")
+    st.markdown("### 🧬 MSL AI Copilot")
+    st.markdown("AI-powered intelligence for Medical Science Liaisons")
     
     st.markdown("---")
     
-    st.markdown("### 🎯 **Modules**")
-    st.page_link("pages/1_Literature_Intelligence.py", label="📚 Literature Intelligence", icon="📚")
-    st.page_link("pages/2_KOL_Briefing_Generator.py", label="👤 KOL Briefing Generator", icon="👤")
-    st.page_link("pages/3_Impact_Dashboard.py", label="📊 Impact Dashboard", icon="📊")
+    st.markdown("### 🎯 Modules")
+    
+    st.markdown('<div class="sidebar-module">', unsafe_allow_html=True)
+    if st.button("📚 📚 Literature Intelligence", use_container_width=True, type="primary"):
+        st.switch_page("pages/1_Literature_Intelligence.py")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="sidebar-module">', unsafe_allow_html=True)
+    if st.button("👤 👤 KOL Briefing Generator", use_container_width=True, type="primary"):
+        st.switch_page("pages/2_KOL_Briefing_Generator.py")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="sidebar-module">', unsafe_allow_html=True)
+    if st.button("📊 📊 Impact Dashboard", use_container_width=True, type="primary"):
+        st.switch_page("pages/3_Impact_Dashboard.py")
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
     
-    st.markdown("### ⚙️ **Quick Setup**")
-    if os.getenv("OPENAI_API_KEY"):
-        st.success("✅ API configured")
-    else:
-        st.warning("⚠️ Add API key to `.env`")
-    
-    st.markdown("---")
-    st.markdown("""
-    <div style='text-align: center; color: #6b7280; font-size: 12px;'>
-        Built with Streamlit + GPT-4o<br>
-        Version 1.0.0
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("### ⚙️ Quick Setup")
+    st.markdown("Ensure API keys are configured in Render environment variables.")
 
-# ============================================================================
+# =================================================================================
 # HERO SECTION
-# ============================================================================
+# =================================================================================
 st.markdown("""
 <div class="hero-container">
     <div class="hero-title">🧬 MSL AI Copilot</div>
-    <div class="hero-subtitle">Transform Information Overload into Strategic Insight</div>
-    <div class="hero-tagline">
-        AI-powered literature intelligence, KOL briefings, and impact tracking — 
-        purpose-built for Medical Science Liaisons
-    </div>
+    <div class="hero-subtitle">AI-Powered Intelligence for Medical Science Liaisons</div>
+    <div class="hero-tagline">Transform your scientific engagement with cutting-edge AI technology</div>
 </div>
 """, unsafe_allow_html=True)
 
-# ============================================================================
+# =================================================================================
 # STATS SECTION
-# ============================================================================
+# =================================================================================
 st.markdown("""
 <div class="stats-container">
-    <div class="stat-item">
+    <div class="stat-box">
         <div class="stat-number">10x</div>
-        <div class="stat-label">Faster Literature Review</div>
+        <div class="stat-label">Faster Literature<br/>Review</div>
     </div>
-    <div class="stat-item">
+    <div class="stat-box">
         <div class="stat-number">95%</div>
-        <div class="stat-label">Compliance Accuracy</div>
+        <div class="stat-label">Compliance<br/>Accuracy</div>
     </div>
-    <div class="stat-item">
+    <div class="stat-box">
         <div class="stat-number">30min</div>
-        <div class="stat-label">To Deep Insights</div>
+        <div class="stat-label">To Deep<br/>Insights</div>
     </div>
-    <div class="stat-item">
+    <div class="stat-box">
         <div class="stat-number">100%</div>
-        <div class="stat-label">Real PubMed Data</div>
+        <div class="stat-label">Real PubMed<br/>Data</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ============================================================================
-# FEATURE CARDS
-# ============================================================================
-st.markdown("## 🚀 Core Features")
+# =================================================================================
+# SECTION HEADER
+# =================================================================================
+st.markdown("""
+<div class="section-header">
+    <div class="section-title">🚀 Core Features</div>
+    <div class="section-subtitle">Everything you need to excel as a Medical Science Liaison</div>
+</div>
+""", unsafe_allow_html=True)
 
+# =================================================================================
+# FEATURE CARDS
+# =================================================================================
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown("""
     <div class="feature-card">
-        <div class="feature-icon">📚</div>
+        <span class="feature-icon">📚</span>
         <div class="feature-title">Literature Intelligence</div>
         <div class="feature-description">
             AI-powered search and synthesis of scientific literature from PubMed, 
             with automatic compliance screening and evidence classification.
         </div>
-        <div class="feature-benefits">
-            ✓ Smart PubMed queries<br>
-            ✓ GPT-4o summaries<br>
-            ✓ Compliance filtering<br>
-            ✓ Evidence leveling
-        </div>
+        <ul class="feature-list">
+            <li>Real-time PubMed search</li>
+            <li>Compliance-first filtering</li>
+            <li>Evidence classification</li>
+            <li>Saved library management</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary"):
+        st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
     st.markdown("""
     <div class="feature-card">
-        <div class="feature-icon">👤</div>
+        <span class="feature-icon">👤</span>
         <div class="feature-title">KOL Briefing Generator</div>
         <div class="feature-description">
             Generate comprehensive, compliant briefing documents for KOL interactions 
-            based on their publication history and research interests.
+            based on their publication history and research focus.
         </div>
-        <div class="feature-benefits">
-            ✓ Auto-detect expertise<br>
-            ✓ Recent publications<br>
-            ✓ Talking points<br>
-            ✓ Export to PDF/DOCX
-        </div>
+        <ul class="feature-list">
+            <li>Publication analysis</li>
+            <li>Research focus detection</li>
+            <li>Compliant summaries</li>
+            <li>Export-ready briefs</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary"):
+        st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
     st.markdown("""
     <div class="feature-card">
-        <div class="feature-icon">📊</div>
+        <span class="feature-icon">📊</span>
         <div class="feature-title">Impact Dashboard</div>
         <div class="feature-description">
             Visualize your MSL activities and demonstrate ROI with interactive 
             charts, metrics, and exportable reports.
         </div>
-        <div class="feature-benefits">
-            ✓ Activity tracking<br>
-            ✓ Demo mode included<br>
-            ✓ Interactive charts<br>
-            ✓ Export reports
-        </div>
+        <ul class="feature-list">
+            <li>Activity tracking</li>
+            <li>Engagement metrics</li>
+            <li>Visual analytics</li>
+            <li>Exportable reports</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"):
+        st.switch_page("pages/3_Impact_Dashboard.py")
 
-# ============================================================================
-# WHY THIS EXISTS
-# ============================================================================
+# =================================================================================
+# GET STARTED SECTION
+# =================================================================================
 st.markdown("---")
-st.markdown("## 🎯 Why This Exists")
-
-col1, col2 = st.columns([3, 2])
-
-with col1:
-    st.markdown("""
-    ### The MSL Challenge
-    
-    Medical Science Liaisons face an impossible task: staying current with **thousands of new publications monthly**, 
-    preparing for **high-stakes KOL interactions**, and **demonstrating measurable impact** — all while maintaining 
-    strict regulatory compliance.
-    
-    Traditional tools are generic. This isn't.
-    
-    ### The MSL AI Copilot Solution
-    
-    Built by someone with deep expertise in:
-    - **Pharmacokinetics / Pharmacodynamics (PK/PD)**
-    - **Regulatory Affairs & FDA Compliance**
-    - **Machine Learning & Data Science**
-    - **Clinical Trial Design & Analysis**
-    
-    This tool combines domain knowledge with cutting-edge AI to solve **real MSL pain points**.
-    """)
-
-with col2:
-    st.info("""
-    **🔬 Built with Real Science**
-    
-    - PubMed integration (30M+ articles)
-    - GPT-4o for synthesis
-    - Compliance-first architecture
-    - Evidence-based classifications
-    - NCBI API best practices
-    
-    **🎓 Perfect For**
-    
-    - Field Medical Teams
-    - MSL Departments
-    - Clinical Development
-    - Medical Affairs
-    - Academic Liaisons
-    """)
-
-# ============================================================================
-# HOW IT WORKS
-# ============================================================================
-st.markdown("---")
-st.markdown("## ⚙️ How It Works")
-
-steps = st.columns(4)
-
-with steps[0]:
-    st.markdown("""
-    ### 1️⃣ Search
-    Enter your clinical question or research topic
-    """)
-
-with steps[1]:
-    st.markdown("""
-    ### 2️⃣ Fetch
-    Real-time PubMed API queries retrieve relevant literature
-    """)
-
-with steps[2]:
-    st.markdown("""
-    ### 3️⃣ Analyze
-    GPT-4o synthesizes findings with compliance filtering
-    """)
-
-with steps[3]:
-    st.markdown("""
-    ### 4️⃣ Act
-    Export insights, briefings, or track impact
-    """)
-
-# ============================================================================
-# GET STARTED
-# ============================================================================
-st.markdown("---")
-st.markdown("## 🚀 Get Started")
+st.markdown("""
+<div class="section-header">
+    <div class="section-title">✨ Get Started</div>
+</div>
+""", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("📚 Explore Literature", use_container_width=True, type="primary"):
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary"):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
-    if st.button("👤 Create KOL Briefing", use_container_width=True, type="primary"):
+    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary"):
         st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
-    if st.button("📊 View Impact Dashboard", use_container_width=True, type="primary"):
+    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"):
         st.switch_page("pages/3_Impact_Dashboard.py")
 
-# ============================================================================
+# =================================================================================
 # FOOTER
-# ============================================================================
+# =================================================================================
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: #6b7280; padding: 20px;'>
+<div class="footer">
     <p style='margin: 0;'>
-        <strong>MSL AI Copilot</strong> | Built with Streamlit, OpenAI GPT-4o, and PubMed APIs
+        <strong class='footer-strong'>MSL AI Copilot</strong> | Built with Streamlit, OpenAI GPT-4o, and PubMed APIs
     </p>
     <p style='margin: 8px 0 0 0; font-size: 13px;'>
         Designed for Medical Science Liaisons by experts in PK/PD, Regulatory Affairs, and Machine Learning
