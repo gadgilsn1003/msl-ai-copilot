@@ -436,15 +436,15 @@ st.markdown("""
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🔍 Explore Literature", use_container_width=True, type="primary"):
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary, key="get_started_lit""):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
-    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary"):
+    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary", key="get_started_kol"):
         st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
-    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"):
+    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"), key="get_started_impact":
         st.switch_page("pages/3_Impact_Dashboard.py")
 
 # =================================================================================
