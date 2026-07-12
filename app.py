@@ -26,11 +26,11 @@ st.set_page_config(
 # CUSTOM CSS - MODERN PREMIUM DESIGN
 # =================================================================================
 st.markdown("""
-175
-
+<style>
     /* Hero section */
     .hero-container {
-        background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 50%, #0369A1 100%);
+        background: linear-gradient(135deg, #0EA5E9 0%, #028
+        4C7 50%, #0369A1 100%);
         padding: 80px 60px;
         border-radius: 24px;
         margin-bottom: 60px;
