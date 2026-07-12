@@ -436,7 +436,7 @@ st.markdown("""
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🔍 Explore Literature", use_container_width=True, type="primary", key="get_started_lit""):
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary", key="get_started_lit"):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
