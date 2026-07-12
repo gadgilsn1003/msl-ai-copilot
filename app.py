@@ -444,8 +444,7 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary"), key="feature_kol":
-        st.switch_page("pages/2_KOL_Briefing_Generator.py")
+    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary", key="feature_kol"):        st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
     st.markdown(""", key="feature_kol"
