@@ -444,7 +444,7 @@ with col2:
         st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
-    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"), key="get_started_impact":
+    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary", key="get_started_impact"):
         st.switch_page("pages/3_Impact_Dashboard.py")
 
 # =================================================================================
