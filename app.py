@@ -26,7 +26,8 @@ st.set_page_config(
 # CUSTOM CSS - MODERN PREMIUM DESIGN
 # =================================================================================
 st.markdown("""
-<style>
+175
+
     /* Hero section */
     .hero-container {
         background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 50%, #0369A1 100%);
@@ -272,11 +273,56 @@ st.markdown("""
         box-shadow: 0 6px 25px rgba(14, 165, 233, 0.4);
         background: linear-gradient(135deg, #0284C7, #0369A1);
     }
+
+            /* Add shimmer effect to buttons */
+        .stButton > button:before {
+            content: '' !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: -100% !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent) !important;
+            transition: left 0.6s !important;
+        }
+        
+        .stButton > button:hover:before {
+            left: 100% !important;
+        }
+        
+        /* Enhanced stat box animation */
+        @keyframes statGlow {
+            0%, 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); }
+            50% { box-shadow: 0 15px 40px rgba(14, 165, 233, 0.25), 0 0 30px rgba(14, 165, 233, 0.1); }
+        }
+        
+        .stat-box {
+            animation: statGlow 4s ease-in-out infinite !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        
+        .stat-box:before {
+            content: '' !important;
+            position: absolute !important;
+            top: -50% !important;
+            left: -50% !important;
+            width: 200% !important;
+            height: 200% !important;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.05) 0%, transparent 70%) !important;
+            animation: rotate 8s linear infinite !important;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     
     /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-</style>
+174
+
 """, unsafe_allow_html=True)
 
 # =================================================================================
