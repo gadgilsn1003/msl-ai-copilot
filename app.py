@@ -34,7 +34,7 @@ st.markdown("""
         padding: 80px 60px;
         border-radius: 24px;
         margin-bottom: 60px;
-        color: white;
+        color: #1e293b;;
         text-align: center;
         box-shadow: 0 20px 60px rgba(14, 165, 233, 0.3);
         position: relative;
@@ -257,7 +257,7 @@ st.markdown("""
     /* Button enhancements */
     .stButton > button {
         background: linear-gradient(135deg, #0EA5E9, #0284C7);
-        color: white;
+        color: #1e293b;;
         border: none;
         padding: 16px 32px;
         font-size: 16px;
