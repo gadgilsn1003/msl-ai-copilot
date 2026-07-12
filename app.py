@@ -423,7 +423,7 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🔍 Explore Literature", use_container_width=True, type="primary"):
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary, key="feature_lit""):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
@@ -444,11 +444,11 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary"):
+    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary"), key="feature_kol":
         st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
-    st.markdown("""
+    st.markdown(""", key="feature_kol"
     <div class="feature-card">
         <span class="feature-icon">📊</span>
         <div class="feature-title">Impact Dashboard</div>
@@ -465,11 +465,11 @@ with col3:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"):
+    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"), key="feature_impact":
         st.switch_page("pages/3_Impact_Dashboard.py")
 
 # =================================================================================
-# GET STARTED SECTION
+# GET STARTED SECTION, key="feature_impact"
 # =================================================================================
 st.markdown("---")
 st.markdown("""
