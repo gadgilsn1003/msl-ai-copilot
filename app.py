@@ -423,7 +423,7 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🔍 Explore Literature", use_container_width=True, type="primary, key="feature_lit""):
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary", key="feature_lit""):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
