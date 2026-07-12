@@ -321,10 +321,9 @@ st.markdown("""
     /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-174
-
+    }
+    </style>
 """, unsafe_allow_html=True)
-
 # =================================================================================
 # SIDEBAR - NAVIGATION
 # =================================================================================
