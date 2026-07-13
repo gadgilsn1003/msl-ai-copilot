@@ -7,12 +7,11 @@ using the Biopython Entrez module.
 
 import os
 from dotenv import load_dotenv
+from Bio import Entrez
 
 load_dotenv()
 
 # Configure Entrez
-from Bio import Entrez
-
 NCBI_EMAIL = os.getenv("NCBI_EMAIL", "msl-copilot@example.com")
 NCBI_API_KEY = os.getenv("NCBI_API_KEY", None)
 
@@ -24,20 +23,11 @@ if NCBI_API_KEY:
 def search_pubmed(query: str, max_results: int = 15, sort: str = "relevance") -> list:
     """
     Search PubMed and return article details.
-
-    Args:
-        query: PubMed search query (supports MeSH syntax)
-        max_results: Maximum number of results to return
-        sort: Sort order - 'relevance' or 'date'
-
-    Returns:
-        List of article dictionaries
     """
     if not query or query.strip() == "":
         return []
 
     try:
-        # Search PubMed for IDs
         handle = Entrez.esearch(
             db="pubmed",
             term=query,
@@ -49,27 +39,19 @@ def search_pubmed(query: str, max_results: int = 15, sort: str = "relevance") ->
         handle.close()
 
         id_list = search_results.get("IdList", [])
-
         if not id_list:
             return []
 
-        # Fetch article details
-        articles = fetch_article_details(id_list)
+        articles = fetch_articles(id_list)
         return articles
 
     except Exception as e:
         raise Exception(f"PubMed search failed: {str(e)}")
 
 
-def fetch_article_details(pmid_list: list) -> list:
+def fetch_articles(pmid_list: list) -> list:
     """
     Fetch detailed article information for a list of PMIDs.
-
-    Args:
-        pmid_list: List of PubMed IDs
-
-    Returns:
-        List of article dictionaries with full details
     """
     if not pmid_list:
         return []
@@ -85,9 +67,8 @@ def fetch_article_details(pmid_list: list) -> list:
         handle.close()
 
         articles = []
-
         for article_data in records.get("PubmedArticle", []):
-            article = parse_article(article_data)
+            article = _parse_article(article_data)
             if article:
                 articles.append(article)
 
@@ -97,15 +78,16 @@ def fetch_article_details(pmid_list: list) -> list:
         raise Exception(f"Failed to fetch article details: {str(e)}")
 
 
-def parse_article(article_data: dict) -> dict:
+def search_and_fetch(query: str, max_results: int = 15, sort: str = "relevance") -> list:
+    """
+    Combined search and fetch in one call.
+    """
+    return search_pubmed(query, max_results, sort)
+
+
+def _parse_article(article_data: dict) -> dict:
     """
     Parse a single PubMed article record into a clean dictionary.
-
-    Args:
-        article_data: Raw PubMed article data
-
-    Returns:
-        Cleaned article dictionary
     """
     try:
         medline = article_data.get("MedlineCitation", {})
@@ -152,7 +134,7 @@ def parse_article(article_data: dict) -> dict:
         pub_type_list = [str(pt) for pt in pub_types]
 
         # Classify study type
-        study_type = classify_study_type(pub_type_list, title, abstract)
+        study_type = _classify_study_type(pub_type_list, title, abstract)
 
         # MeSH terms
         mesh_list = medline.get("MeshHeadingList", [])
@@ -161,14 +143,6 @@ def parse_article(article_data: dict) -> dict:
             descriptor = mesh.get("DescriptorName", "")
             if descriptor:
                 mesh_terms.append(str(descriptor))
-
-        # DOI
-        doi = ""
-        article_ids = article_data.get("PubmedData", {}).get("ArticleIdList", [])
-        for aid in article_ids:
-            if hasattr(aid, "attributes") and aid.attributes.get("IdType") == "doi":
-                doi = str(aid)
-                break
 
         return {
             "pmid": pmid,
@@ -180,24 +154,15 @@ def parse_article(article_data: dict) -> dict:
             "pub_types": pub_type_list,
             "study_type": study_type,
             "mesh_terms": mesh_terms,
-            "doi": doi,
         }
 
     except Exception:
         return None
 
 
-def classify_study_type(pub_types: list, title: str, abstract: str) -> str:
+def _classify_study_type(pub_types: list, title: str, abstract: str) -> str:
     """
     Classify the study type based on publication types and content.
-
-    Args:
-        pub_types: List of publication type strings
-        title: Article title
-        abstract: Article abstract
-
-    Returns:
-        Study type classification string
     """
     title_lower = title.lower()
     abstract_lower = abstract.lower()
