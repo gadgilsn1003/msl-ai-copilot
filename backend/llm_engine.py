@@ -1,262 +1,446 @@
 """
-backend/llm_engine.py
+🧠 LLM Engine - Google Gemini Integration
 
-Real OpenAI LLM engine for MSL AI Copilot.
-Uses GPT-4o for article summarization, KOL briefings, and RAG-based Q&A.
+Handles all AI-powered features:
+- Article summarization (3 formats)
+- RAG-based Q&A over retrieved articles
+- KOL briefing generation
+- Insight extraction from field notes
+- Activity report generation
 """
 
 import os
-import json
-from typing import Optional, List
-from openai import OpenAI
+from dotenv import load_dotenv
 
-_client = None
+load_dotenv()
+
+# =================================================================================
+# GEMINI CLIENT SETUP
+# =================================================================================
+import google.generativeai as genai
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
+# Model configuration
+GENERATION_CONFIG = {
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 4096,
+}
+
+SAFETY_SETTINGS = [
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+]
 
 
-def _get_client() -> Optional[OpenAI]:
-    """Return a cached OpenAI client, or None if no API key."""
-    global _client
-    if _client is None:
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        if api_key:
-            _client = OpenAI(api_key=api_key)
-    return _client
+def get_model(temperature=0.3):
+    """Get configured Gemini model instance."""
+    config = GENERATION_CONFIG.copy()
+    config["temperature"] = temperature
+
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-pro",
+        generation_config=config,
+        safety_settings=SAFETY_SETTINGS,
+    )
+    return model
 
 
-def get_llm(model: str = "gpt-4o", temperature: float = 0.2):
-    """Return OpenAI client, model, and temperature."""
-    client = _get_client()
-    return client, model, temperature
+def check_api_available():
+    """Check if Gemini API is configured and available."""
+    if not GOOGLE_API_KEY:
+        return False, "GOOGLE_API_KEY not configured"
+    try:
+        model = get_model()
+        response = model.generate_content("Say 'ok'")
+        return True, "Connected"
+    except Exception as e:
+        return False, str(e)
 
 
-def summarize_article(
-    title: str,
-    abstract: str,
-    focus: Optional[str] = None,
-    style: str = "standard",
-    model: str = "gpt-4o",
-) -> str:
-    """Summarize a PubMed article using GPT-4o."""
-    client = _get_client()
-    if not client:
-        return "Error: OpenAI API key not configured."
+# =================================================================================
+# ARTICLE SUMMARIZATION
+# =================================================================================
+def summarize_article(abstract: str, format_type: str = "standard") -> str:
+    """
+    Summarize a scientific article abstract using Gemini.
 
-    style_instructions = {
-        "standard": "Write a concise 3-4 sentence paragraph summary suitable for an MSL.",
-        "bullet": "Write a summary as 4-6 bullet points highlighting the key findings.",
-        "hcp_talking_points": (
-            "Write 3-5 HCP talking points an MSL could use when discussing this paper with "
-            "a physician. Use conditional language ('data suggest', 'the study found'). "
-            "Be concise and clinically relevant."
+    Args:
+        abstract: The article abstract text
+        format_type: One of 'standard', 'bullet points', 'hcp talking points'
+
+    Returns:
+        Formatted summary string
+    """
+    if not GOOGLE_API_KEY:
+        return "⚠️ AI summarization requires GOOGLE_API_KEY. Please configure in environment variables."
+
+    if not abstract or abstract.strip() == "":
+        return "No abstract available for summarization."
+
+    format_instructions = {
+        "standard": (
+            "Provide a clear, concise scientific summary in 3-4 paragraphs. "
+            "Include: key objective, methodology, main findings, and clinical implications. "
+            "Use precise scientific language appropriate for a Medical Science Liaison."
+        ),
+        "bullet points": (
+            "Provide a structured bullet-point summary with the following sections:\n"
+            "• **Objective:** (1-2 bullets)\n"
+            "• **Methods:** (2-3 bullets)\n"
+            "• **Key Findings:** (3-4 bullets)\n"
+            "• **Clinical Implications:** (1-2 bullets)\n"
+            "• **Limitations:** (1 bullet)\n"
+            "Use precise scientific language."
+        ),
+        "hcp talking points": (
+            "Generate 4-6 concise talking points that an MSL could use when discussing "
+            "this study with a healthcare professional. Each point should:\n"
+            "- Be evidence-based and reference specific data from the abstract\n"
+            "- Be compliant (no promotional language, no comparative claims without data)\n"
+            "- Be conversational yet scientifically rigorous\n"
+            "- Include relevant statistics where available\n"
+            "Format as numbered talking points."
         ),
     }
-    style_prompt = style_instructions.get(style, style_instructions["standard"])
-    focus_prompt = f" Focus specifically on: {focus}." if focus else ""
 
-    prompt = (
-        f"You are a Medical Science Liaison (MSL) summarizing a scientific paper for internal use.\n\n"
-        f"Article Title: {title}\n\n"
-        f"Abstract:\n{abstract}\n\n"
-        f"Task: {style_prompt}{focus_prompt}\n\n"
-        f"Comply with MSL best practices: use conditional language, cite the study, "
-        f"avoid absolute claims, present efficacy and safety in fair balance."
+    instruction = format_instructions.get(
+        format_type.lower(),
+        format_instructions["standard"]
     )
+
+    prompt = f"""You are a Medical Science Liaison AI assistant. Your role is to provide 
+accurate, balanced, and compliant scientific summaries.
+
+IMPORTANT RULES:
+- Do NOT use promotional language
+- Do NOT make comparative efficacy claims unless directly supported by the data
+- Do NOT minimize safety findings
+- Do NOT make absolute claims (e.g., "this drug cures...")
+- Present findings objectively and include limitations
+
+TASK: {instruction}
+
+ABSTRACT:
+{abstract}
+
+SUMMARY:"""
+
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=500,
-        )
-        return response.choices[0].message.content.strip()
+        model = get_model(temperature=0.3)
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        return f"Error generating summary: {e}"
+        return f"⚠️ Summarization failed: {str(e)}"
 
 
+# =================================================================================
+# RAG-BASED Q&A OVER ARTICLES
+# =================================================================================
+def ask_question_over_articles(question: str, articles: list) -> str:
+    """
+    Answer a question using retrieved articles as context (RAG).
+
+    Args:
+        question: User's natural language question
+        articles: List of article dicts with 'title', 'abstract', etc.
+
+    Returns:
+        AI-generated answer grounded in the provided articles
+    """
+    if not GOOGLE_API_KEY:
+        return "⚠️ AI Q&A requires GOOGLE_API_KEY. Please configure in environment variables."
+
+    if not articles:
+        return "No articles available to answer questions. Please search for articles first."
+
+    # Build context from articles
+    context_parts = []
+    for i, article in enumerate(articles[:10], 1):
+        title = article.get("title", "Untitled")
+        abstract = article.get("abstract", "No abstract available")
+        authors = article.get("authors", "Unknown")
+        year = article.get("year", "")
+        pmid = article.get("pmid", "")
+
+        context_parts.append(
+            f"[Article {i}] {title}\n"
+            f"Authors: {authors}\n"
+            f"Year: {year} | PMID: {pmid}\n"
+            f"Abstract: {abstract}\n"
+        )
+
+    context = "\n---\n".join(context_parts)
+
+    prompt = f"""You are a Medical Science Liaison AI assistant answering questions based on 
+scientific literature. 
+
+IMPORTANT RULES:
+- ONLY answer based on the provided articles below
+- Cite specific articles by number when making claims (e.g., [Article 1])
+- If the articles don't contain enough information to answer, say so clearly
+- Do NOT speculate beyond what the data shows
+- Do NOT use promotional language
+- Present findings objectively
+
+RETRIEVED ARTICLES:
+{context}
+
+QUESTION: {question}
+
+ANSWER (cite sources by article number):"""
+
+    try:
+        model = get_model(temperature=0.2)
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"⚠️ Q&A failed: {str(e)}"
+
+
+# =================================================================================
+# KOL BRIEFING GENERATION
+# =================================================================================
 def generate_kol_briefing(
     kol_name: str,
-    specialty: str,
-    institution: str,
-    field_notes: str,
-    relevant_articles: Optional[List[dict]] = None,
-    therapeutic_area: str = "",
-    model: str = "gpt-4o",
+    institution: str = "",
+    specialty: str = "",
+    field_notes: str = "",
+    interaction_type: str = "Pre-meeting briefing",
+    include_literature: bool = False,
+    literature_results: list = None,
 ) -> str:
-    """Generate a comprehensive KOL briefing document using GPT-4o."""
-    client = _get_client()
-    if not client:
-        return "Error: OpenAI API key not configured."
+    """
+    Generate a structured KOL briefing document.
 
-    # Build literature context if articles provided
+    Args:
+        kol_name: Name of the KOL
+        institution: KOL's institution
+        specialty: KOL's specialty/therapeutic area
+        field_notes: Raw field notes and context
+        interaction_type: Type of upcoming interaction
+        include_literature: Whether to include literature context
+        literature_results: Optional list of relevant articles
+
+    Returns:
+        Formatted markdown briefing document
+    """
+    if not GOOGLE_API_KEY:
+        return "⚠️ Briefing generation requires GOOGLE_API_KEY. Please configure in environment variables."
+
+    # Build literature context if available
     lit_context = ""
-    if relevant_articles:
+    if include_literature and literature_results:
         lit_parts = []
-        for i, art in enumerate(relevant_articles[:5]):
+        for article in literature_results[:5]:
             lit_parts.append(
-                f"[{i+1}] {art.get('title', 'N/A')} "
-                f"({art.get('pub_date', 'N/A')}) - "
-                f"{art.get('abstract', '')[:200]}..."
+                f"- {article.get('title', 'Untitled')} "
+                f"({article.get('journal', '')}, {article.get('year', '')})"
             )
-        lit_context = "\n\nRecent Relevant Literature:\n" + "\n".join(lit_parts)
+        lit_context = f"\n\nRELEVANT RECENT LITERATURE:\n" + "\n".join(lit_parts)
 
-    prompt = (
-        f"You are a senior Medical Science Liaison preparing a pre-meeting KOL briefing document.\n\n"
-        f"KOL Name: {kol_name}\n"
-        f"Specialty: {specialty}\n"
-        f"Institution: {institution}\n"
-        f"Therapeutic Area: {therapeutic_area}\n\n"
-        f"Field Notes from Previous Interactions:\n{field_notes[:2000]}\n"
-        f"{lit_context}\n\n"
-        f"Generate a professional, structured KOL briefing document with these sections:\n"
-        f"## 1. KOL Profile Summary\n"
-        f"## 2. Scientific Interests & Expertise\n"
-        f"## 3. Previous Interaction Highlights\n"
-        f"## 4. Suggested Discussion Topics\n"
-        f"## 5. Recommended Literature to Share\n"
-        f"## 6. Strategic Engagement Notes\n\n"
-        f"Be concise, evidence-based, and MSL-compliant. Use professional language."
-    )
+    prompt = f"""You are an AI assistant for Medical Science Liaisons. Generate a comprehensive 
+pre-meeting briefing document for an upcoming KOL interaction.
+
+IMPORTANT RULES:
+- All content must be compliant with FDA medical affairs guidance
+- Do NOT include promotional language
+- Focus on scientific exchange and medical education
+- Be factual and evidence-based
+- Flag any areas where additional information is needed
+
+KOL INFORMATION:
+- Name: {kol_name}
+- Institution: {institution}
+- Specialty: {specialty}
+- Upcoming Interaction Type: {interaction_type}
+
+FIELD NOTES / CONTEXT:
+{field_notes}
+{lit_context}
+
+Generate a structured briefing with the following 7 sections:
+
+## 1. KOL Profile Summary
+Brief overview of the KOL based on available information.
+
+## 2. Research Interests & Focus Areas
+Key scientific interests and therapeutic focus areas.
+
+## 3. Discussion History & Key Topics
+Summary of previous interactions and recurring themes.
+
+## 4. Recommended Discussion Points
+Suggested topics for the upcoming interaction (compliant, non-promotional).
+
+## 5. Relevant Literature
+Recent publications or data that may be relevant to discuss.
+
+## 6. Identified Unmet Needs
+Scientific or clinical unmet needs expressed by or relevant to this KOL.
+
+## 7. Relationship Notes & Follow-up Actions
+Relationship status, pending items, and recommended next steps.
+
+---
+Generate the briefing now:"""
+
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-            max_tokens=1200,
-        )
-        return response.choices[0].message.content.strip()
+        model = get_model(temperature=0.4)
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        return f"Error generating KOL briefing: {e}"
+        return f"⚠️ Briefing generation failed: {str(e)}"
 
 
-def extract_insights(text: str, focus_area: Optional[str] = None) -> str:
-    """Extract key insights from text using GPT-4o."""
-    client = _get_client()
-    if not client:
-        return "Error: OpenAI API key not configured."
-    focus_msg = f" Focus on: {focus_area}." if focus_area else ""
-    prompt = (
-        f"Extract 4-5 key clinical insights from the following text for an MSL.{focus_msg}\n\n"
-        f"Text:\n{text[:3000]}\n\n"
-        f"Format as numbered insights, each with a bold header and 1-2 sentences."
-    )
+# =================================================================================
+# INSIGHT EXTRACTION
+# =================================================================================
+def extract_insights(field_notes: str) -> str:
+    """
+    Extract structured insights from raw field notes.
+
+    Args:
+        field_notes: Unstructured field notes text
+
+    Returns:
+        Structured insights in markdown format
+    """
+    if not GOOGLE_API_KEY:
+        return "⚠️ Insight extraction requires GOOGLE_API_KEY. Please configure in environment variables."
+
+    if not field_notes or field_notes.strip() == "":
+        return "No field notes provided for analysis."
+
+    prompt = f"""You are an AI assistant for Medical Science Liaisons. Analyze the following 
+field notes and extract structured insights.
+
+FIELD NOTES:
+{field_notes}
+
+Extract and organize the following:
+
+### Key Scientific Insights
+- Main scientific topics discussed
+- Data or evidence mentioned
+
+### KOL Sentiment & Interests
+- KOL's attitude toward current treatments
+- Areas of scientific interest or curiosity
+- Concerns raised
+
+### Unmet Needs Identified
+- Clinical unmet needs mentioned
+- Research gaps identified
+- Patient population needs
+
+### Action Items
+- Follow-up items needed
+- Information requests
+- Suggested next steps
+
+### Compliance Notes
+- Any topics that require careful handling
+- Areas to avoid in future discussions
+
+Provide the analysis:"""
+
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=400,
-        )
-        return response.choices[0].message.content.strip()
+        model = get_model(temperature=0.3)
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        return f"Error extracting insights: {e}"
+        return f"⚠️ Insight extraction failed: {str(e)}"
 
 
-def build_rag_index(articles: list) -> dict:
-    """Build a simple in-memory index from article dicts."""
-    return {
-        "index": "live",
-        "articles": len(articles),
-        "data": articles,
-    }
+# =================================================================================
+# ACTIVITY REPORT GENERATION
+# =================================================================================
+def generate_activity_report(interactions: list) -> str:
+    """
+    Generate a leadership-ready MSL activity report.
 
+    Args:
+        interactions: List of interaction dicts
 
-def ask_literature(question: str, index: dict = None, model: str = "gpt-4o") -> dict:
-    """Answer a question using the retrieved articles as context (RAG)."""
-    client = _get_client()
-    articles = (index or {}).get("data", [])
+    Returns:
+        Formatted markdown activity report
+    """
+    if not GOOGLE_API_KEY:
+        return "⚠️ Report generation requires GOOGLE_API_KEY. Please configure in environment variables."
 
-    if not client:
-        return {"answer": "Error: OpenAI API key not configured.", "sources": []}
-    if not articles:
-        return {"answer": "No articles in index. Please run a search first.", "sources": []}
+    if not interactions:
+        return "No interactions available to generate a report."
 
-    context_parts = []
-    for i, art in enumerate(articles[:8]):
-        context_parts.append(
-            f"[{i+1}] Title: {art.get('title', 'N/A')}\n"
-            f"   Authors: {art.get('authors', 'N/A')} ({art.get('pub_date', 'N/A')})\n"
-            f"   Abstract: {art.get('abstract', 'N/A')[:400]}"
-        )
-    context = "\n\n".join(context_parts)
+    # Summarize interactions for the prompt
+    total = len(interactions)
+    unique_kols = len(set(i.get("kol_name", "") for i in interactions))
+    types = {}
+    therapeutic_areas = {}
+    all_notes = []
 
-    prompt = (
-        f"You are an expert MSL assistant. Answer the following question based ONLY on "
-        f"the provided scientific articles. Cite article numbers like [1], [2] in your answer.\n\n"
-        f"Question: {question}\n\n"
-        f"Articles:\n{context}\n\n"
-        f"Provide a clear, evidence-based answer in 3-5 sentences. "
-        f"Use conditional language (data suggest, findings indicate). "
-        f"If the articles don't contain enough information, say so."
-    )
+    for interaction in interactions:
+        itype = interaction.get("type", "Unknown")
+        types[itype] = types.get(itype, 0) + 1
+
+        ta = interaction.get("therapeutic_area", "Unknown")
+        therapeutic_areas[ta] = therapeutic_areas.get(ta, 0) + 1
+
+        notes = interaction.get("notes", "")
+        if notes:
+            all_notes.append(f"- [{itype}] {interaction.get('kol_name', 'Unknown')}: {notes[:150]}")
+
+    types_summary = ", ".join([f"{k}: {v}" for k, v in sorted(types.items(), key=lambda x: -x[1])])
+    ta_summary = ", ".join([f"{k}: {v}" for k, v in sorted(therapeutic_areas.items(), key=lambda x: -x[1])])
+    notes_sample = "\n".join(all_notes[:15])
+
+    prompt = f"""You are an AI assistant helping a Medical Science Liaison create an activity 
+report for their manager/leadership team.
+
+ACTIVITY DATA:
+- Total Interactions: {total}
+- Unique KOLs Engaged: {unique_kols}
+- Interaction Types: {types_summary}
+- Therapeutic Areas: {ta_summary}
+
+SAMPLE INTERACTION NOTES:
+{notes_sample}
+
+Generate a professional MSL activity report with:
+
+## Executive Summary
+2-3 sentence overview of the reporting period.
+
+## Key Metrics
+Present the quantitative data clearly.
+
+## Strategic Highlights
+Top 3-4 notable engagements or scientific exchanges.
+
+## Therapeutic Area Coverage
+Summary of activity across therapeutic areas.
+
+## Emerging Themes & Unmet Needs
+Scientific themes and unmet needs identified from KOL interactions.
+
+## Planned Next Steps
+Recommended actions for the next reporting period.
+
+---
+*This report was auto-generated by MSL AI Copilot.*
+
+Generate the report:"""
+
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=400,
-        )
-        answer = response.choices[0].message.content.strip()
+        model = get_model(temperature=0.4)
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        answer = f"Error generating answer: {e}"
-
-    sources = [
-        {"title": a.get("title", "Unknown"), "url": a.get("url", "#")}
-        for a in articles[:8]
-    ]
-    return {"answer": answer, "sources": sources}
-
-
-def extract_insights_from_notes(
-    notes: str,
-    therapeutic_area: str = "",
-    model: str = "gpt-4o",
-) -> dict:
-    """Extract structured insights from field interaction notes using GPT-4o."""
-    client = _get_client()
-    if not client:
-        return {
-            "key_themes": [],
-            "sentiment": "unknown",
-            "follow_up_actions": [],
-            "scientific_interests": [],
-            "unmet_needs": [],
-            "summary": "Error: OpenAI API key not configured.",
-            "raw_analysis": "Error: OpenAI API key not configured.",
-        }
-
-    ta_context = f" for therapeutic area: {therapeutic_area}" if therapeutic_area else ""
-    prompt = (
-        f"You are an MSL analyzing field interaction notes{ta_context}.\n\n"
-        f"Notes:\n{notes[:3000]}\n\n"
-        f"Extract the following as JSON:\n"
-        f"- key_themes: list of 3-5 main themes discussed\n"
-        f"- sentiment: overall sentiment (positive/neutral/negative)\n"
-        f"- follow_up_actions: list of 2-4 recommended follow-up actions\n"
-        f"- scientific_interests: list of scientific topics the HCP showed interest in\n"
-        f"- unmet_needs: list of unmet clinical or scientific needs mentioned\n"
-        f"- summary: 2-3 sentence summary of the interaction\n"
-        f"- raw_analysis: a formatted markdown analysis suitable for MSL reporting\n\n"
-        f"Respond with valid JSON only."
-    )
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=600,
-            response_format={"type": "json_object"},
-        )
-        result = json.loads(response.choices[0].message.content)
-        if "raw_analysis" not in result:
-            result["raw_analysis"] = result.get("summary", "No analysis available.")
-        return result
-    except Exception as e:
-        return {
-            "key_themes": [],
-            "sentiment": "unknown",
-            "follow_up_actions": [],
-            "scientific_interests": [],
-            "unmet_needs": [],
-            "summary": f"Error extracting insights: {e}",
-            "raw_analysis": f"Error extracting insights: {e}",
-        }
+        return f"⚠️ Report generation failed: {str(e)}"
