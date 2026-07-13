@@ -29,18 +29,17 @@ st.markdown("""
 <style>
     /* Hero section */
     .hero-container {
-        background: linear-gradient(135deg, #0EA5E9 0%, #028
-        4C7 50%, #0369A1 100%);
+        background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 50%, #0369A1 100%);
         padding: 80px 60px;
         border-radius: 24px;
         margin-bottom: 60px;
-        color: #1e293b;;
+        color: #1e293b;
         text-align: center;
         box-shadow: 0 20px 60px rgba(14, 165, 233, 0.3);
         position: relative;
         overflow: hidden;
     }
-    
+
     .hero-container::before {
         content: '';
         position: absolute;
@@ -51,12 +50,12 @@ st.markdown("""
         background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
         animation: pulse 4s ease-in-out infinite;
     }
-    
+
     @keyframes pulse {
         0%, 100% { transform: scale(1); opacity: 0.5; }
         50% { transform: scale(1.1); opacity: 0.8; }
     }
-    
+
     .hero-title {
         font-size: 56px;
         font-weight: 800;
@@ -65,7 +64,7 @@ st.markdown("""
         position: relative;
         z-index: 1;
     }
-    
+
     .hero-subtitle {
         font-size: 24px;
         opacity: 0.95;
@@ -74,7 +73,7 @@ st.markdown("""
         position: relative;
         z-index: 1;
     }
-    
+
     .hero-tagline {
         font-size: 18px;
         opacity: 0.85;
@@ -82,7 +81,7 @@ st.markdown("""
         position: relative;
         z-index: 1;
     }
-    
+
     /* Stats section */
     .stats-container {
         display: flex;
@@ -91,7 +90,7 @@ st.markdown("""
         gap: 24px;
         flex-wrap: wrap;
     }
-    
+
     .stat-box {
         background: linear-gradient(145deg, #ffffff, #f8fafc);
         padding: 32px;
@@ -103,12 +102,12 @@ st.markdown("""
         transition: transform 0.3s ease, box-shadow 0.3s ease;
         border: 1px solid rgba(14, 165, 233, 0.1);
     }
-    
+
     .stat-box:hover {
         transform: translateY(-8px);
         box-shadow: 0 20px 40px rgba(14, 165, 233, 0.15);
     }
-    
+
     .stat-number {
         font-size: 48px;
         font-weight: 800;
@@ -116,7 +115,7 @@ st.markdown("""
         line-height: 1;
         margin-bottom: 8px;
     }
-    
+
     .stat-label {
         font-size: 14px;
         color: #64748b;
@@ -124,7 +123,7 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
+
     /* Feature cards */
     .feature-card {
         background: linear-gradient(145deg, #ffffff, #f8fafc);
@@ -137,7 +136,7 @@ st.markdown("""
         position: relative;
         overflow: hidden;
     }
-    
+
     .feature-card::before {
         content: '';
         position: absolute;
@@ -149,23 +148,23 @@ st.markdown("""
         opacity: 0;
         transition: opacity 0.3s ease;
     }
-    
+
     .feature-card:hover {
         transform: translateY(-8px);
         box-shadow: 0 20px 50px rgba(14, 165, 233, 0.2);
         border-color: #0EA5E9;
     }
-    
+
     .feature-card:hover::before {
         opacity: 1;
     }
-    
+
     .feature-icon {
         font-size: 48px;
         margin-bottom: 20px;
         display: block;
     }
-    
+
     .feature-title {
         font-size: 28px;
         font-weight: 700;
@@ -173,20 +172,20 @@ st.markdown("""
         margin-bottom: 16px;
         line-height: 1.3;
     }
-    
+
     .feature-description {
         font-size: 16px;
         color: #475569;
         line-height: 1.7;
         margin-bottom: 20px;
     }
-    
+
     .feature-list {
         margin: 16px 0;
         padding-left: 0;
         list-style: none;
     }
-    
+
     .feature-list li {
         padding: 8px 0;
         color: #64748b;
@@ -194,7 +193,7 @@ st.markdown("""
         display: flex;
         align-items: center;
     }
-    
+
     .feature-list li:before {
         content: "✓";
         color: #0EA5E9;
@@ -202,31 +201,31 @@ st.markdown("""
         margin-right: 12px;
         font-size: 18px;
     }
-    
+
     /* Section headers */
     .section-header {
         text-align: center;
         margin: 60px 0 40px 0;
     }
-    
+
     .section-title {
         font-size: 42px;
         font-weight: 800;
         color: #0f172a;
         margin-bottom: 12px;
     }
-    
+
     .section-subtitle {
         font-size: 18px;
         color: #64748b;
         font-weight: 400;
     }
-    
+
     /* Sidebar styling */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
     }
-    
+
     .sidebar-module {
         padding: 12px 16px;
         margin: 8px 0;
@@ -234,12 +233,12 @@ st.markdown("""
         transition: all 0.2s ease;
         cursor: pointer;
     }
-    
+
     .sidebar-module:hover {
         background: rgba(14, 165, 233, 0.1);
         transform: translateX(4px);
     }
-    
+
     /* Footer */
     .footer {
         text-align: center;
@@ -248,16 +247,16 @@ st.markdown("""
         border-top: 2px solid #e2e8f0;
         color: #64748b;
     }
-    
+
     .footer-strong {
         color: #0EA5E9;
         font-weight: 600;
     }
-    
+
     /* Button enhancements */
     .stButton > button {
         background: linear-gradient(135deg, #0EA5E9, #0284C7);
-        color: #1e293b;;
+        color: #1e293b;
         border: none;
         padding: 16px 32px;
         font-size: 16px;
@@ -267,91 +266,91 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
         width: 100%;
     }
-    
+
     .stButton > button:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 25px rgba(14, 165, 233, 0.4);
         background: linear-gradient(135deg, #0284C7, #0369A1);
     }
 
-            /* Add shimmer effect to buttons */
-        .stButton > button:before {
-            content: '' !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: -100% !important;
-            width: 100% !important;
-            height: 100% !important;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent) !important;
-            transition: left 0.6s !important;
-        }
-        
-        .stButton > button:hover:before {
-            left: 100% !important;
-        }
-        
-        /* Enhanced stat box animation */
-        @keyframes statGlow {
-            0%, 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); }
-            50% { box-shadow: 0 15px 40px rgba(14, 165, 233, 0.25), 0 0 30px rgba(14, 165, 233, 0.1); }
-        }
-        
-        .stat-box {
-            animation: statGlow 4s ease-in-out infinite !important;
-            position: relative !important;
-            overflow: hidden !important;
-        }
-        
-        .stat-box:before {
-            content: '' !important;
-            position: absolute !important;
-            top: -50% !important;
-            left: -50% !important;
-            width: 200% !important;
-            height: 200% !important;
-            background: radial-gradient(circle, rgba(14, 165, 233, 0.05) 0%, transparent 70%) !important;
-            animation: rotate 8s linear infinite !important;
-        }
-        
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-    
+    /* Add shimmer effect to buttons */
+    .stButton > button:before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: -100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent) !important;
+        transition: left 0.6s !important;
+    }
+
+    .stButton > button:hover:before {
+        left: 100% !important;
+    }
+
+    /* Enhanced stat box animation */
+    @keyframes statGlow {
+        0%, 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); }
+        50% { box-shadow: 0 15px 40px rgba(14, 165, 233, 0.25), 0 0 30px rgba(14, 165, 233, 0.1); }
+    }
+
+    .stat-box {
+        animation: statGlow 4s ease-in-out infinite !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .stat-box:before {
+        content: '' !important;
+        position: absolute !important;
+        top: -50% !important;
+        left: -50% !important;
+        width: 200% !important;
+        height: 200% !important;
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.05) 0%, transparent 70%) !important;
+        animation: rotate 8s linear infinite !important;
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
     /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    }
-    </style>
+</style>
 """, unsafe_allow_html=True)
+
 # =================================================================================
 # SIDEBAR - NAVIGATION
 # =================================================================================
 with st.sidebar:
     st.markdown("### 🧬 MSL AI Copilot")
     st.markdown("AI-powered intelligence for Medical Science Liaisons")
-    
+
     st.markdown("---")
-    
+
     st.markdown("### 🎯 Modules")
-    
+
     st.markdown('<div class="sidebar-module">', unsafe_allow_html=True)
-    if st.button("📚 📚 Literature Intelligence", use_container_width=True, type="primary"):
+    if st.button("📚 Literature Intelligence", use_container_width=True, type="primary"):
         st.switch_page("pages/1_Literature_Intelligence.py")
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     st.markdown('<div class="sidebar-module">', unsafe_allow_html=True)
-    if st.button("👤 👤 KOL Briefing Generator", use_container_width=True, type="primary"):
+    if st.button("👤 KOL Briefing Generator", use_container_width=True, type="primary"):
         st.switch_page("pages/2_KOL_Briefing_Generator.py")
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     st.markdown('<div class="sidebar-module">', unsafe_allow_html=True)
-    if st.button("📊 📊 Impact Dashboard", use_container_width=True, type="primary"):
+    if st.button("📊 Impact Dashboard", use_container_width=True, type="primary"):
         st.switch_page("pages/3_Impact_Dashboard.py")
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     st.markdown("---")
-    
+
     st.markdown("### ⚙️ Quick Setup")
     st.markdown("Ensure API keys are configured in Render environment variables.")
 
@@ -411,7 +410,7 @@ with col1:
         <span class="feature-icon">📚</span>
         <div class="feature-title">Literature Intelligence</div>
         <div class="feature-description">
-            AI-powered search and synthesis of scientific literature from PubMed, 
+            AI-powered search and synthesis of scientific literature from PubMed,
             with automatic compliance screening and evidence classification.
         </div>
         <ul class="feature-list">
@@ -422,8 +421,8 @@ with col1:
         </ul>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("🔍 Explore Literature", use_container_width=True, type="primary", key="feature_lit"":
+
+    if st.button("🔍 Explore Literature", use_container_width=True, type="primary", key="feature_lit"):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
@@ -432,7 +431,7 @@ with col2:
         <span class="feature-icon">👤</span>
         <div class="feature-title">KOL Briefing Generator</div>
         <div class="feature-description">
-            Generate comprehensive, compliant briefing documents for KOL interactions 
+            Generate comprehensive, compliant briefing documents for KOL interactions
             based on their publication history and research focus.
         </div>
         <ul class="feature-list">
@@ -443,16 +442,17 @@ with col2:
         </ul>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary", key="feature_kol"):        st.switch_page("pages/2_KOL_Briefing_Generator.py")
+
+    if st.button("📝 Create KOL Briefing", use_container_width=True, type="primary", key="feature_kol"):
+        st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
-    st.markdown(""", key="feature_kol"
+    st.markdown("""
     <div class="feature-card">
         <span class="feature-icon">📊</span>
         <div class="feature-title">Impact Dashboard</div>
         <div class="feature-description">
-            Visualize your MSL activities and demonstrate ROI with interactive 
+            Visualize your MSL activities and demonstrate ROI with interactive
             charts, metrics, and exportable reports.
         </div>
         <ul class="feature-list">
@@ -463,12 +463,12 @@ with col3:
         </ul>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary"), key="feature_impact":
+
+    if st.button("📈 View Impact Dashboard", use_container_width=True, type="primary", key="feature_impact"):
         st.switch_page("pages/3_Impact_Dashboard.py")
 
 # =================================================================================
-# GET STARTED SECTION, key="feature_impact"
+# GET STARTED SECTION
 # =================================================================================
 st.markdown("---")
 st.markdown("""
