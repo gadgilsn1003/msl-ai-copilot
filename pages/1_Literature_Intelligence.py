@@ -1,217 +1,591 @@
+"""
+📚 Literature Intelligence Module
+
+Real-time PubMed search with AI-powered summarization,
+RAG-based Q&A, and automatic compliance screening.
+"""
+
 import streamlit as st
-import pandas as pd
 import os
 import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
+from dotenv import load_dotenv
 
-from backend.pubmed_fetcher import search_and_fetch, THERAPEUTIC_AREA_QUERIES
-from backend.llm_engine import summarize_article, build_rag_index, ask_literature
-from backend.compliance_filter import scan_text, get_compliance_badge, MSL_BEST_PRACTICES
-from backend.database import init_db, save_article, get_saved_articles
+load_dotenv()
 
-init_db()
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-st.set_page_config(page_title="Literature Intelligence | MSL AI Copilot", page_icon="📚", layout="wide")
-st.title("📚 Literature Intelligence")
-st.caption("Search PubMed in real-time. Get AI summaries. Check compliance. Save to your library.")
+# =================================================================================
+# PAGE CONFIG
+# =================================================================================
+st.set_page_config(
+    page_title="MSL AI Copilot · Literature Intelligence",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-col1, col2 = st.columns([3, 1])
-with col1:
-    query = st.text_input("🔍 Search Query",
-                          placeholder="e.g., glioblastoma temozolomide resistance mechanisms",
-                          help="Supports full PubMed/Entrez syntax")
-with col2:
-    ta_preset = st.selectbox("Or pick therapeutic area",
-                              options=["— Custom —"] + list(THERAPEUTIC_AREA_QUERIES.keys()))
+# =================================================================================
+# PAGE CSS
+# =================================================================================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-col3, col4, col5 = st.columns(3)
-with col3:
-    max_results = st.slider("Max Results", 5, 50, 20)
-with col4:
-    sort_by = st.selectbox("Sort By", ["relevance", "pub_date"])
-with col5:
-    year_range = st.slider("Year Range", 2010, 2026, (2020, 2026))
+    .stApp {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: #f8fafc;
+    }
 
-search_btn = st.button("🔍 Search PubMed", type="primary", use_container_width=True)
+    .block-container {
+        padding: 2rem 3rem;
+        max-width: 1200px;
+    }
 
-if search_btn:
-    final_query = THERAPEUTIC_AREA_QUERIES.get(ta_preset, query) if ta_preset != "— Custom —" else query
-    if not final_query.strip():
-        st.warning("Please enter a search query or select a therapeutic area.")
-        st.stop()
-    with st.spinner(f"Searching PubMed for: *{final_query}*..."):
-        articles = search_and_fetch(
-            query=final_query,
-            max_results=max_results,
-            date_range=(year_range[0], year_range[1]),
-            sort_by=sort_by
-        )
-    if not articles:
-        st.error("No articles found. Try broadening your search terms.")
-        st.stop()
-    st.success(f"Found **{len(articles)}** articles")
-    st.session_state["articles"] = [a.to_dict() for a in articles]
-    st.session_state["query"] = final_query
-    st.session_state["summaries"] = {}  # reset summaries on new search
-    st.session_state["rag_index"] = build_rag_index(st.session_state["articles"])
+    /* Page Header */
+    .page-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 8px;
+    }
 
-if "articles" in st.session_state and st.session_state["articles"]:
-    articles = st.session_state["articles"]
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📝 Article List",
-        "🧠 AI Summaries",
-        "💬 Ask the Literature",
-        "🔖 Saved Library"
-    ])
+    .page-header-icon {
+        width: 52px;
+        height: 52px;
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(14, 165, 233, 0.04));
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+    }
 
-    # --- Tab 1: Article List ---
-    with tab1:
-        st.subheader(f"Results for: *{st.session_state.get('query', '')}*")
-        for i, art in enumerate(articles):
-            with st.expander(f"📄 {art['title'][:100]}", expanded=(i == 0)):
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    st.markdown(f"**Authors:** {art['authors']}")
-                    st.markdown(f"**Journal:** {art['journal']} | **Date:** {art['pub_date']}")
-                    if art.get('doi'):
-                        st.markdown(f"**DOI:** {art['doi']}")
-                    st.markdown("**Abstract:**")
-                    st.write(art['abstract'])
-                    if art.get('mesh_terms'):
-                        st.markdown(f"**MeSH:** {', '.join(art['mesh_terms'][:6])}")
-                with c2:
-                    st.link_button("🔗 View on PubMed", art['url'])
-                    if st.button("🔖 Save to Library", key=f"save_{i}"):
-                        if save_article(art):
-                            st.success("Saved!")
-                        else:
-                            st.error("Error saving.")
-        df = pd.DataFrame(articles)
-        st.download_button("📥 Export to CSV", df.to_csv(index=False), "pubmed_results.csv", "text/csv")
+    .page-header-text h1 {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
 
-    # --- Tab 2: AI Summaries ---
-    with tab2:
-        st.subheader("🧠 AI-Powered Summaries with Compliance Check")
-        summary_style = st.selectbox(
-            "Summary Style",
-            ["standard", "bullet", "hcp_talking_points"],
-            format_func=lambda x: {
-                "standard": "Standard Paragraph",
-                "bullet": "Bullet Points",
-                "hcp_talking_points": "HCP Talking Points"
-            }[x]
-        )
-        focus_area = st.text_input("Focus on (optional)", placeholder="e.g., safety profile, mechanism of action")
-        if "summaries" not in st.session_state:
-            st.session_state["summaries"] = {}
-        for i, art in enumerate(articles[:10]):
-            with st.expander(f"Summarize: {art['title'][:80]}"):
-                btn_key = f"sum_{i}"
-                if st.button("Generate Summary", key=btn_key):
-                    with st.spinner("Generating AI summary with GPT-4o..."):
-                        summary = summarize_article(
-                            art['title'], art['abstract'],
-                            focus=focus_area or None,
-                            style=summary_style
+    .page-header-text p {
+        font-size: 14px;
+        color: #64748b;
+        margin: 4px 0 0 0;
+    }
+
+    /* Search Panel */
+    .search-panel {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 28px;
+        margin-bottom: 24px;
+    }
+
+    .search-panel-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Result Card */
+    .result-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 24px;
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
+    }
+
+    .result-card:hover {
+        border-color: #0ea5e9;
+        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.08);
+    }
+
+    .result-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+
+    .result-meta {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .result-meta span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .result-abstract {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.7;
+        margin-bottom: 12px;
+    }
+
+    .result-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .badge-rct { background: #dbeafe; color: #1d4ed8; }
+    .badge-review { background: #fae8ff; color: #a21caf; }
+    .badge-meta { background: #dcfce7; color: #166534; }
+    .badge-observational { background: #fef3c7; color: #92400e; }
+    .badge-default { background: #f1f5f9; color: #475569; }
+
+    /* Compliance Alert */
+    .compliance-pass {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 13px;
+        color: #166534;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .compliance-flag {
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-size: 13px;
+        color: #991b1b;
+        margin-top: 12px;
+    }
+
+    .compliance-flag-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 4px 0;
+    }
+
+    /* Summary Box */
+    .summary-box {
+        background: linear-gradient(135deg, #f0f9ff, #f8fafc);
+        border: 1px solid #bae6fd;
+        border-radius: 14px;
+        padding: 24px;
+        margin-top: 16px;
+    }
+
+    .summary-box h4 {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0369a1;
+        margin: 0 0 12px 0;
+    }
+
+    .summary-box p {
+        font-size: 14px;
+        color: #334155;
+        line-height: 1.7;
+        margin: 0;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #94a3b8;
+    }
+
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .empty-state h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #64748b;
+        margin: 0 0 8px 0;
+    }
+
+    .empty-state p {
+        font-size: 14px;
+        margin: 0;
+    }
+
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
+        color: white !important;
+        border: none !important;
+        padding: 10px 20px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2) !important;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3) !important;
+    }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: #ffffff;
+        border-right: 1px solid #e2e8f0;
+    }
+
+    [data-testid="stSidebar"] .stButton > button {
+        background: transparent !important;
+        color: #334155 !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: none !important;
+        font-weight: 500 !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(14, 165, 233, 0.06) !important;
+        border-color: #0ea5e9 !important;
+        color: #0ea5e9 !important;
+        transform: none !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    /* Hide Streamlit chrome */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
+# =================================================================================
+# IMPORTS - Backend modules
+# =================================================================================
+try:
+    from backend.pubmed_fetcher import search_pubmed, fetch_article_details
+    from backend.llm_engine import summarize_article, ask_question_over_articles
+    from backend.compliance_filter import screen_content
+    BACKEND_AVAILABLE = True
+except ImportError:
+    BACKEND_AVAILABLE = False
+
+# =================================================================================
+# SIDEBAR
+# =================================================================================
+with st.sidebar:
+    st.markdown("### 🧬 MSL AI Copilot")
+    st.caption("Literature Intelligence")
+    st.markdown("---")
+
+    if st.button("🏠  Home", use_container_width=True, key="nav_home"):
+        st.switch_page("app.py")
+    if st.button("👤  KOL Briefing", use_container_width=True, key="nav_kol"):
+        st.switch_page("pages/2_KOL_Briefing_Generator.py")
+    if st.button("📊  Impact Dashboard", use_container_width=True, key="nav_dash"):
+        st.switch_page("pages/3_Impact_Dashboard.py")
+
+    st.markdown("---")
+
+    st.markdown("**Search Settings**")
+    max_results = st.slider("Max results", 5, 50, 15, key="max_results")
+    sort_order = st.selectbox("Sort by", ["Relevance", "Date (Newest)", "Date (Oldest)"], key="sort_order")
+
+    st.markdown("---")
+
+    st.markdown("**Quick Queries**")
+    therapeutic_areas = {
+        "Oncology – Immunotherapy": "immunotherapy[MeSH] AND cancer AND clinical trial[pt]",
+        "GBM / Neuro-Oncology": "glioblastoma[MeSH] AND (temozolomide OR bevacizumab) AND 2023:2025[dp]",
+        "Immunology – Autoimmune": "autoimmune diseases[MeSH] AND biologics AND treatment outcome",
+        "Cardiology – Heart Failure": "heart failure[MeSH] AND SGLT2 inhibitors AND clinical trial[pt]",
+        "Rare Disease – Gene Therapy": "gene therapy[MeSH] AND rare diseases AND 2023:2025[dp]",
+        "Neurology – Alzheimer's": "alzheimer disease[MeSH] AND (lecanemab OR donanemab) AND 2023:2025[dp]",
+    }
+
+    selected_ta = st.selectbox("Therapeutic Area", ["Custom"] + list(therapeutic_areas.keys()), key="ta_select")
+
+    if selected_ta != "Custom":
+        st.code(therapeutic_areas[selected_ta], language=None)
+
+    st.markdown("---")
+
+    # Library section
+    st.markdown("**📁 Saved Library**")
+    if "saved_articles" not in st.session_state:
+        st.session_state.saved_articles = []
+
+    saved_count = len(st.session_state.saved_articles)
+    st.caption(f"{saved_count} article{'s' if saved_count != 1 else ''} saved")
+
+# =================================================================================
+# PAGE HEADER
+# =================================================================================
+st.markdown("""
+<div class="page-header">
+    <div class="page-header-icon">📚</div>
+    <div class="page-header-text">
+        <h1>Literature Intelligence</h1>
+        <p>Search, analyze, and synthesize scientific literature with AI-powered compliance screening</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# =================================================================================
+# SEARCH INTERFACE
+# =================================================================================
+# Search input
+if selected_ta != "Custom":
+    default_query = therapeutic_areas[selected_ta]
+else:
+    default_query = ""
+
+search_query = st.text_input(
+    "🔍 Search PubMed",
+    value=default_query,
+    placeholder="Enter search terms, MeSH terms, or paste a PubMed query...",
+    key="search_input",
+    help="Supports full PubMed/MeSH syntax. Example: 'glioblastoma[MeSH] AND immunotherapy AND 2024[dp]'"
+)
+
+col_search, col_clear = st.columns([4, 1])
+
+with col_search:
+    search_clicked = st.button("🔍 Search PubMed", use_container_width=True, key="btn_search")
+
+with col_clear:
+    if st.button("Clear", use_container_width=True, key="btn_clear"):
+        if "search_results" in st.session_state:
+            del st.session_state.search_results
+
+# =================================================================================
+# SEARCH EXECUTION
+# =================================================================================
+if search_clicked and search_query:
+    if not BACKEND_AVAILABLE:
+        st.error("⚠️ Backend modules not found. Please ensure `backend/` directory is properly configured.")
+    else:
+        with st.spinner("Searching PubMed..."):
+            try:
+                sort_map = {
+                    "Relevance": "relevance",
+                    "Date (Newest)": "date",
+                    "Date (Oldest)": "date",
+                }
+                results = search_pubmed(
+                    query=search_query,
+                    max_results=max_results,
+                    sort=sort_map.get(sort_order, "relevance")
+                )
+                st.session_state.search_results = results
+                st.session_state.current_query = search_query
+            except Exception as e:
+                st.error(f"Search failed: {str(e)}")
+
+# =================================================================================
+# RESULTS DISPLAY
+# =================================================================================
+if "search_results" in st.session_state and st.session_state.search_results:
+    results = st.session_state.search_results
+
+    st.markdown(f"**{len(results)} articles found** for: `{st.session_state.get('current_query', '')}`")
+    st.markdown("")
+
+    # Tabs for different views
+    tab_results, tab_qa, tab_library = st.tabs(["📄 Results", "🤖 AI Q&A", "📁 Saved Library"])
+
+    with tab_results:
+        for i, article in enumerate(results):
+            with st.container():
+                # Article header
+                col_title, col_save = st.columns([6, 1])
+
+                with col_title:
+                    st.markdown(f"**{article.get('title', 'Untitled')}**")
+
+                with col_save:
+                    if st.button("💾", key=f"save_{i}", help="Save to library"):
+                        if article not in st.session_state.saved_articles:
+                            st.session_state.saved_articles.append(article)
+                            st.toast("Article saved to library!", icon="✅")
+
+                # Metadata
+                authors = article.get('authors', 'Unknown authors')
+                journal = article.get('journal', 'Unknown journal')
+                year = article.get('year', '')
+                pmid = article.get('pmid', '')
+
+                st.caption(f"👥 {authors[:100]}{'...' if len(str(authors)) > 100 else ''}")
+                st.caption(f"📰 {journal} · {year} · PMID: {pmid}")
+
+                # Abstract
+                abstract = article.get('abstract', '')
+                if abstract:
+                    with st.expander("View Abstract"):
+                        st.write(abstract)
+
+                        # Summarize button
+                        summary_format = st.selectbox(
+                            "Summary format",
+                            ["Standard", "Bullet Points", "HCP Talking Points"],
+                            key=f"fmt_{i}"
                         )
-                        report = scan_text(summary)
-                        badge_color, badge_label = get_compliance_badge(report)
-                        st.session_state["summaries"][i] = {
-                            "text": summary,
-                            "badge_color": badge_color,
-                            "badge_label": badge_label,
-                            "flags": report.flags,
-                        }
-                if i in st.session_state.get("summaries", {}):
-                    saved = st.session_state["summaries"][i]
-                    st.markdown("**AI Summary:**")
-                    st.write(saved["text"])
-                    st.markdown(f"**Compliance:** :{saved['badge_color']}[{saved['badge_label']}]")
-                    for flag in saved["flags"]:
-                        st.warning(f"**{flag.severity.value} - {flag.category}**: {flag.suggestion}")
 
-    # --- Tab 3: RAG Q&A ---
-    with tab3:
-        st.subheader("💬 Ask the Literature (RAG Q&A)")
-        if "rag_index" not in st.session_state:
-            st.info("Run a search first, then ask questions about the retrieved articles.")
-        else:
-            question = st.text_input("Ask a question",
-                                     placeholder="What do these studies say about TMZ resistance mechanisms?")
-            if st.button("Ask", type="primary") and question:
-                with st.spinner("Querying literature with GPT-4o..."):
+                        if st.button("🧠 AI Summarize", key=f"sum_{i}"):
+                            if not os.getenv("OPENAI_API_KEY"):
+                                st.warning("OpenAI API key required for AI summarization.")
+                            else:
+                                with st.spinner("Generating summary..."):
+                                    try:
+                                        summary = summarize_article(abstract, format_type=summary_format.lower())
+
+                                        # Compliance check
+                                        compliance_result = screen_content(summary)
+
+                                        st.markdown("---")
+                                        st.markdown(f"**AI Summary ({summary_format})**")
+                                        st.write(summary)
+
+                                        if compliance_result.get("passed", True):
+                                            st.success("✅ Compliance check passed")
+                                        else:
+                                            st.warning("⚠️ Compliance flags detected:")
+                                            for flag in compliance_result.get("flags", []):
+                                                st.write(f"- [{flag['severity']}] {flag['message']}")
+                                    except Exception as e:
+                                        st.error(f"Summarization failed: {str(e)}")
+
+                st.markdown("---")
+
+    with tab_qa:
+        st.markdown("### 🤖 Ask Questions Over Retrieved Articles")
+        st.caption("Uses RAG (Retrieval-Augmented Generation) to answer questions based on the retrieved literature.")
+
+        question = st.text_input(
+            "Ask a question",
+            placeholder="e.g., What are the main efficacy endpoints reported across these studies?",
+            key="qa_input"
+        )
+
+        if st.button("Get Answer", key="btn_qa") and question:
+            if not os.getenv("OPENAI_API_KEY"):
+                st.warning("OpenAI API key required for AI Q&A.")
+            else:
+                with st.spinner("Analyzing articles..."):
                     try:
-                        result = ask_literature(question, st.session_state["rag_index"])
-                        st.session_state["last_answer"] = result
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-            if "last_answer" in st.session_state:
-                result = st.session_state["last_answer"]
-                st.markdown("**Answer:**")
-                st.write(result["answer"])
-                if result.get("sources"):
-                    st.markdown("**Sources:**")
-                    for src in result["sources"]:
-                        st.markdown(f"- [{src['title'][:80]}]({src['url']})")
+                        answer = ask_question_over_articles(question, results)
 
-    # --- Tab 4: Saved Library ---
-    with tab4:
-        st.subheader("🔖 Saved Article Library")
-        st.caption("Articles you have saved for later reference.")
-        saved = get_saved_articles()
-        if not saved:
-            st.info("No articles saved yet. Use the 'Save to Library' button in the Article List tab.")
+                        st.markdown("**Answer:**")
+                        st.write(answer)
+
+                        # Compliance check on answer
+                        compliance_result = screen_content(answer)
+                        if compliance_result.get("passed", True):
+                            st.success("✅ Compliance check passed")
+                        else:
+                            st.warning("⚠️ Compliance flags detected")
+                            for flag in compliance_result.get("flags", []):
+                                st.write(f"- [{flag['severity']}] {flag['message']}")
+                    except Exception as e:
+                        st.error(f"Q&A failed: {str(e)}")
+
+    with tab_library:
+        st.markdown("### 📁 Saved Article Library")
+
+        if st.session_state.saved_articles:
+            st.caption(f"{len(st.session_state.saved_articles)} articles in library")
+
+            for i, article in enumerate(st.session_state.saved_articles):
+                col_art, col_remove = st.columns([6, 1])
+                with col_art:
+                    st.markdown(f"**{article.get('title', 'Untitled')}**")
+                    st.caption(f"{article.get('journal', '')} · {article.get('year', '')} · PMID: {article.get('pmid', '')}")
+                with col_remove:
+                    if st.button("🗑️", key=f"remove_{i}"):
+                        st.session_state.saved_articles.pop(i)
+                        st.rerun()
+                st.markdown("---")
+
+            # Export
+            if st.button("📥 Export Library as CSV", key="export_csv"):
+                import pandas as pd
+                df = pd.DataFrame(st.session_state.saved_articles)
+                csv = df.to_csv(index=False)
+                st.download_button(
+                    "Download CSV",
+                    csv,
+                    "msl_literature_library.csv",
+                    "text/csv",
+                    key="download_csv"
+                )
         else:
-            st.success(f"**{len(saved)}** article(s) in your library")
-            search_lib = st.text_input("🔍 Search library", placeholder="Filter by title or author...")
-            if search_lib:
-                saved = [a for a in saved if search_lib.lower() in (a.get('title', '') + a.get('authors', '')).lower()]
-            for i, art in enumerate(saved):
-                title = art.get('title', 'Unknown Title')
-                with st.expander(f"📄 {title[:100]}"):
-                    c1, c2 = st.columns([3, 1])
-                    with c1:
-                        st.markdown(f"**Authors:** {art.get('authors', 'N/A')}")
-                        st.markdown(f"**Journal:** {art.get('journal', 'N/A')} | **Date:** {art.get('pub_date', 'N/A')}")
-                        if art.get('doi'):
-                            st.markdown(f"**DOI:** {art['doi']}")
-                        if art.get('abstract'):
-                            st.markdown("**Abstract:**")
-                            st.write(art['abstract'])
-                    with c2:
-                        if art.get('url'):
-                            st.link_button("🔗 PubMed", art['url'])
-                        saved_at = art.get('saved_at', '')
-                        if saved_at:
-                            st.caption(f"Saved: {saved_at[:10]}")
-            df_saved = pd.DataFrame(saved)
-            st.download_button(
-                "📥 Export Library to CSV",
-                df_saved.to_csv(index=False),
-                "saved_articles.csv",
-                "text/csv"
-            )
+            st.markdown("""
+            <div class="empty-state">
+                <div class="empty-state-icon">📁</div>
+                <h3>No saved articles yet</h3>
+                <p>Click the 💾 button on any search result to save it here</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+elif "search_results" in st.session_state and not st.session_state.search_results:
+    st.info("No results found. Try adjusting your search terms.")
 
 else:
-    st.info("👆 Enter a search query above and click **Search PubMed** to get started.")
-    # Show saved library even without active search
-    st.divider()
-    st.subheader("🔖 Your Saved Article Library")
-    saved = get_saved_articles()
-    if not saved:
-        st.info("No articles saved yet. Search and save articles to build your library.")
-    else:
-        st.success(f"**{len(saved)}** article(s) saved")
-        for art in saved:
-            title = art.get('title', 'Unknown Title')
-            with st.expander(f"📄 {title[:100]}"):
-                st.markdown(f"**Authors:** {art.get('authors', 'N/A')}")
-                st.markdown(f"**Journal:** {art.get('journal', 'N/A')} | **Date:** {art.get('pub_date', 'N/A')}")
-                if art.get('url'):
-                    st.link_button("🔗 View on PubMed", art['url'])
+    # Empty state
+    st.markdown("""
+    <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Search scientific literature</h3>
+        <p>Enter a query above or select a therapeutic area from the sidebar to get started</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-with st.sidebar:
-    st.markdown("### 📋 MSL Best Practices")
-    for practice in MSL_BEST_PRACTICES:
-        st.markdown(f"- {practice}")
+    # Quick start suggestions
+    st.markdown("---")
+    st.markdown("**💡 Try these searches:**")
+
+    suggestion_cols = st.columns(3)
+    suggestions = [
+        ("Oncology", "immunotherapy AND checkpoint inhibitors AND 2024[dp]"),
+        ("Cardiology", "SGLT2 inhibitors AND heart failure AND meta-analysis"),
+        ("Neurology", "lecanemab AND alzheimer AND clinical trial[pt]"),
+    ]
+
+    for col, (label, query) in zip(suggestion_cols, suggestions):
+        with col:
+            if st.button(f"🔬 {label}", use_container_width=True, key=f"sug_{label}"):
+                st.session_state.search_input = query
+                st.rerun()
