@@ -1,184 +1,210 @@
 """
-backend/compliance_filter.py
-Regulatory compliance filter for MSL AI Copilot.
-Flags off-label promotion, unsupported efficacy claims, and language
-that violates FDA medical affairs guidance (21 CFR Part 202, PhRMA Code).
+🛡️ Compliance Filter - FDA Regulatory Compliance Scanner
+
+Rule-based scanning aligned with FDA 21 CFR Part 202 and PhRMA Code.
+Flags: off-label promotion, comparative efficacy claims, absolute claims,
+safety minimization, promotional language.
+
+Three-tier severity: HIGH / MEDIUM / LOW
 """
 
 import re
-from dataclasses import dataclass, field
-from enum import Enum
 
 
-class FlagSeverity(Enum):
-    HIGH = "HIGH"
-    MEDIUM = "MEDIUM"
-    LOW = "LOW"
-
-
-@dataclass
-class ComplianceFlag:
-    severity: FlagSeverity
-    category: str
-    matched_text: str
-    explanation: str
-    suggestion: str
-
-
-@dataclass
-class ComplianceReport:
-    original_text: str
-    flags: list = field(default_factory=list)
-    is_compliant: bool = True
-    risk_level: str = "LOW"
-    summary: str = ""
-
-    def add_flag(self, flag: ComplianceFlag):
-        self.flags.append(flag)
-        if flag.severity == FlagSeverity.HIGH:
-            self.is_compliant = False
-            self.risk_level = "HIGH"
-        elif flag.severity == FlagSeverity.MEDIUM and self.risk_level != "HIGH":
-            self.risk_level = "MEDIUM"
-
-    def generate_summary(self):
-        if not self.flags:
-            self.summary = "No compliance issues detected."
-        else:
-            high = sum(1 for f in self.flags if f.severity == FlagSeverity.HIGH)
-            med = sum(1 for f in self.flags if f.severity == FlagSeverity.MEDIUM)
-            low = sum(1 for f in self.flags if f.severity == FlagSeverity.LOW)
-            self.summary = (f"{len(self.flags)} flag(s): {high} HIGH, {med} MEDIUM, {low} LOW. "
-                            f"Risk: {self.risk_level}")
-
-
-OFF_LABEL_PATTERNS = [
+# =================================================================================
+# COMPLIANCE RULES
+# =================================================================================
+COMPLIANCE_RULES = [
+    # HIGH SEVERITY - Off-label promotion
     {
-        "pattern": r"\b(superior to|better than|outperforms|more effective than)\b",
-        "severity": FlagSeverity.HIGH,
-        "category": "Comparative Efficacy Claim",
-        "explanation": "Comparative superiority claims require head-to-head trial data and FDA approval.",
-        "suggestion": "Use: 'In [study], [drug] demonstrated X vs Y.'",
+        "id": "OFF_LABEL_001",
+        "severity": "HIGH",
+        "category": "Off-Label Promotion",
+        "patterns": [
+            r"\b(should be used for|recommended for|indicated for)\b.*(?!FDA.approved)",
+            r"\b(off-label use is|can be used for)\b",
+            r"\b(we recommend|we suggest using)\b",
+        ],
+        "message": "Potential off-label promotion detected. Ensure all efficacy claims are within approved indications.",
     },
+    # HIGH SEVERITY - Comparative claims without data
     {
-        "pattern": r"\b(cure[sd]?|curative|eliminates? the disease|100% effective|guaranteed)\b",
-        "severity": FlagSeverity.HIGH,
-        "category": "Absolute Efficacy Claim",
-        "explanation": "Absolute efficacy claims are prohibited without FDA approval.",
-        "suggestion": "Use qualified language with study context.",
+        "id": "COMP_001",
+        "severity": "HIGH",
+        "category": "Comparative Efficacy Claims",
+        "patterns": [
+            r"\b(superior to|better than|more effective than|outperforms)\b",
+            r"\b(best in class|first in class|only treatment)\b",
+            r"\b(preferred over|drug of choice)\b",
+        ],
+        "message": "Comparative efficacy claim detected. Ensure head-to-head data supports this claim.",
     },
+    # HIGH SEVERITY - Absolute claims
     {
-        "pattern": r"\b(you should prescribe|encourage .{0,20} to prescribe|increase prescribing)\b",
-        "severity": FlagSeverity.HIGH,
-        "category": "Prescribing Influence",
-        "explanation": "Directing HCPs to prescribe crosses into sales promotion.",
-        "suggestion": "Share data; let HCPs make independent decisions.",
+        "id": "ABS_001",
+        "severity": "HIGH",
+        "category": "Absolute Claims",
+        "patterns": [
+            r"\b(cures|eliminates|eradicates|guarantees)\b",
+            r"\b(100% effective|completely safe|no side effects)\b",
+            r"\b(always works|never fails|zero risk)\b",
+        ],
+        "message": "Absolute claim detected. Scientific communications should use qualified language.",
     },
-]
-
-PROMOTIONAL_PATTERNS = [
+    # MEDIUM SEVERITY - Safety minimization
     {
-        "pattern": r"\b(breakthrough|revolutionary|game.?changer|miracle|groundbreaking)\b",
-        "severity": FlagSeverity.MEDIUM,
-        "category": "Promotional Language",
-        "explanation": "Superlative marketing language is inappropriate in scientific exchange.",
-        "suggestion": "Use specific, evidence-based language.",
-    },
-    {
-        "pattern": r"\b(our drug|our product|our medication|our therapy)\b",
-        "severity": FlagSeverity.MEDIUM,
-        "category": "Possessive Product Language",
-        "explanation": "MSL materials should reference drugs by name, not as 'ours'.",
-        "suggestion": "Use the drug's brand or generic name.",
-    },
-]
-
-SAFETY_PATTERNS = [
-    {
-        "pattern": r"\b(no side effects|completely safe|zero risk|no adverse events)\b",
-        "severity": FlagSeverity.HIGH,
+        "id": "SAFETY_001",
+        "severity": "MEDIUM",
         "category": "Safety Minimization",
-        "explanation": "Omitting safety information violates FDA fair balance requirements.",
-        "suggestion": "Include relevant adverse event data alongside efficacy data.",
+        "patterns": [
+            r"\b(well.tolerated|excellent safety|benign side effect)\b",
+            r"\b(minimal risk|negligible adverse|safe for all)\b",
+            r"\b(no serious|no significant adverse)\b",
+        ],
+        "message": "Potential safety minimization. Ensure balanced presentation of safety data.",
     },
+    # MEDIUM SEVERITY - Promotional language
     {
-        "pattern": r"\b(negligible risk|ignore the side|don.t worry about)\b",
-        "severity": FlagSeverity.MEDIUM,
-        "category": "Risk Downplaying",
-        "explanation": "Downplaying risks is inconsistent with fair balance communication.",
-        "suggestion": "Present risk data objectively.",
+        "id": "PROMO_001",
+        "severity": "MEDIUM",
+        "category": "Promotional Language",
+        "patterns": [
+            r"\b(breakthrough|revolutionary|game.changing|miracle)\b",
+            r"\b(transformative|unparalleled|unprecedented efficacy)\b",
+            r"\b(amazing results|remarkable outcomes|extraordinary)\b",
+        ],
+        "message": "Promotional language detected. Use objective, evidence-based terminology.",
+    },
+    # LOW SEVERITY - Unqualified statements
+    {
+        "id": "QUAL_001",
+        "severity": "LOW",
+        "category": "Unqualified Statements",
+        "patterns": [
+            r"\b(proven to|demonstrated to|shown to)\b(?!.*\b(in a|in the|by)\b)",
+            r"\b(clearly|obviously|undoubtedly|certainly)\b",
+        ],
+        "message": "Consider adding qualifiers or citing specific evidence to support this statement.",
+    },
+    # LOW SEVERITY - Missing context
+    {
+        "id": "CTX_001",
+        "severity": "LOW",
+        "category": "Missing Context",
+        "patterns": [
+            r"\b(studies show|research shows|data shows)\b(?!.*\b(et al|PMID|trial|study)\b)",
+            r"\b(evidence suggests)\b(?!.*\b(from|in|based)\b)",
+        ],
+        "message": "Consider specifying which studies or data sources support this claim.",
     },
 ]
 
-DATA_INTEGRITY_PATTERNS = [
-    {
-        "pattern": r"\b(studies show|research proves|science proves)\b",
-        "severity": FlagSeverity.LOW,
-        "category": "Unattributed Data Reference",
-        "explanation": "Vague references to studies without citation are scientifically weak.",
-        "suggestion": "Cite: 'In the Phase III TRIAL-NAME study (Author et al., Year)...'",
-    },
-    {
-        "pattern": r"\b(unpublished data shows|based on my experience|I believe that)\b",
-        "severity": FlagSeverity.MEDIUM,
-        "category": "Unsupported Personal Claim",
-        "explanation": "MSL communications must be grounded in peer-reviewed data.",
-        "suggestion": "Reference only published, peer-reviewed or company-approved data.",
-    },
-]
 
-ALL_PATTERNS = OFF_LABEL_PATTERNS + PROMOTIONAL_PATTERNS + SAFETY_PATTERNS + DATA_INTEGRITY_PATTERNS
+# =================================================================================
+# SCREENING FUNCTION
+# =================================================================================
+def screen_content(content: str) -> dict:
+    """
+    Screen content for compliance issues.
 
+    Args:
+        content: Text content to screen
 
-def scan_text(text: str) -> ComplianceReport:
-    """Scan text for compliance issues and return a ComplianceReport."""
-    report = ComplianceReport(original_text=text)
-    for pattern_def in ALL_PATTERNS:
-        matches = re.finditer(pattern_def["pattern"], text, re.IGNORECASE)
-        for match in matches:
-            flag = ComplianceFlag(
-                severity=pattern_def["severity"],
-                category=pattern_def["category"],
-                matched_text=match.group(0),
-                explanation=pattern_def["explanation"],
-                suggestion=pattern_def["suggestion"],
-            )
-            report.add_flag(flag)
-    report.generate_summary()
-    return report
+    Returns:
+        Dictionary with:
+            - passed: bool (True if no HIGH severity flags)
+            - flags: list of flag dictionaries
+            - summary: string summary of findings
+            - score: compliance score (0-100)
+    """
+    if not content or content.strip() == "":
+        return {
+            "passed": True,
+            "flags": [],
+            "summary": "No content to screen.",
+            "score": 100,
+        }
 
+    flags = []
+    content_lower = content.lower()
 
-def get_compliance_badge(report: ComplianceReport) -> tuple:
-    """Return (color, label) for Streamlit display."""
-    if report.risk_level == "HIGH":
-        return ("red", "HIGH RISK - Review Required")
-    elif report.risk_level == "MEDIUM":
-        return ("orange", "MEDIUM RISK - Some Concerns")
+    for rule in COMPLIANCE_RULES:
+        for pattern in rule["patterns"]:
+            try:
+                matches = re.findall(pattern, content_lower)
+                if matches:
+                    # Get the first match for context
+                    match = re.search(pattern, content_lower)
+                    context = ""
+                    if match:
+                        start = max(0, match.start() - 30)
+                        end = min(len(content), match.end() + 30)
+                        context = content[start:end].strip()
+
+                    flags.append({
+                        "id": rule["id"],
+                        "severity": rule["severity"],
+                        "category": rule["category"],
+                        "message": rule["message"],
+                        "context": f"...{context}...",
+                        "match_count": len(matches),
+                    })
+                    break  # One flag per rule is enough
+            except re.error:
+                continue
+
+    # Calculate compliance score
+    high_count = sum(1 for f in flags if f["severity"] == "HIGH")
+    medium_count = sum(1 for f in flags if f["severity"] == "MEDIUM")
+    low_count = sum(1 for f in flags if f["severity"] == "LOW")
+
+    score = 100 - (high_count * 25) - (medium_count * 10) - (low_count * 5)
+    score = max(0, min(100, score))
+
+    # Determine pass/fail (fails only on HIGH severity)
+    passed = high_count == 0
+
+    # Generate summary
+    if not flags:
+        summary = "Content passed compliance screening. No issues detected."
     else:
-        return ("green", "LOW RISK - Compliant")
+        parts = []
+        if high_count:
+            parts.append(f"{high_count} HIGH severity issue(s)")
+        if medium_count:
+            parts.append(f"{medium_count} MEDIUM severity issue(s)")
+        if low_count:
+            parts.append(f"{low_count} LOW severity issue(s)")
+        summary = f"Compliance screening found: {', '.join(parts)}."
+
+    return {
+        "passed": passed,
+        "flags": flags,
+        "summary": summary,
+        "score": score,
+        "counts": {
+            "high": high_count,
+            "medium": medium_count,
+            "low": low_count,
+        },
+    }
 
 
-def highlight_flags_in_text(text: str, flags: list) -> str:
-    """Return HTML with flagged terms color-highlighted."""
-    highlighted = text
-    for flag in flags:
-        color = {FlagSeverity.HIGH: "#ff4444", FlagSeverity.MEDIUM: "#ff9900",
-                 FlagSeverity.LOW: "#ffcc00"}.get(flag.severity, "#ffcc00")
-        highlighted = re.sub(
-            re.escape(flag.matched_text),
-            f'<mark style="background-color:{color};">{flag.matched_text}</mark>',
-            highlighted, flags=re.IGNORECASE,
-        )
-    return highlighted
+def get_compliance_badge(score: int) -> str:
+    """
+    Get a compliance badge based on score.
 
+    Args:
+        score: Compliance score (0-100)
 
-MSL_BEST_PRACTICES = [
-    "Always cite specific studies with author, year, and journal",
-    "Present efficacy and safety data together (fair balance)",
-    "Use conditional language: 'data suggest' not 'data prove'",
-    "Reference only approved indications unless responding to unsolicited off-label request",
-    "Document unsolicited off-label requests separately",
-    "Avoid comparative claims unless head-to-head trial data exists",
-    "Never recommend specific prescribing decisions",
-    "Ensure all shared materials are medically/legally approved",
-]
+    Returns:
+        Badge string with emoji
+    """
+    if score >= 90:
+        return "✅ Compliant"
+    elif score >= 70:
+        return "⚠️ Minor Issues"
+    elif score >= 50:
+        return "🟠 Review Needed"
+    else:
+        return "🔴 Non-Compliant"
