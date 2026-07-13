@@ -35,40 +35,61 @@ SAFETY_SETTINGS = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
 
+# Model preference order - will try each until one works
+MODEL_NAMES = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro-latest",
+    "gemini-pro",
+]
 
-def _get_model(temperature=0.3):
-    """Get configured Gemini model instance with fallback."""
+# Cache the working model name so we don't retry every call
+_working_model_name = None
+
+
+def _call_gemini(prompt: str, temperature: float = 0.3) -> str:
+    """
+    Call Gemini API with automatic model fallback.
+    Tries multiple model names until one works, then caches the working one.
+    """
+    global _working_model_name
+
     config = GENERATION_CONFIG.copy()
     config["temperature"] = temperature
 
-    # Try models in order of preference (Pro first since you have Pro access)
-    model_names = [
-        "gemini-2.5-pro-preview-05-06",
-        "gemini-2.0-pro",
-        "gemini-1.5-pro-latest",
-        "gemini-1.5-pro",
-        "gemini-pro",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-    ]
+    # If we already found a working model, use it directly
+    if _working_model_name:
+        try:
+            model = genai.GenerativeModel(
+                model_name=_working_model_name,
+                generation_config=config,
+                safety_settings=SAFETY_SETTINGS,
+            )
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception:
+            # Model stopped working, reset and try all again
+            _working_model_name = None
 
-    for model_name in model_names:
+    # Try each model until one works
+    last_error = None
+    for model_name in MODEL_NAMES:
         try:
             model = genai.GenerativeModel(
                 model_name=model_name,
                 generation_config=config,
                 safety_settings=SAFETY_SETTINGS,
             )
-            return model
-        except Exception:
+            response = model.generate_content(prompt)
+            # Success! Cache this model name
+            _working_model_name = model_name
+            return response.text
+        except Exception as e:
+            last_error = e
             continue
 
-    # Absolute last resort
-    return genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        generation_config=config,
-        safety_settings=SAFETY_SETTINGS,
-    )
+    # All models failed
+    raise Exception(f"All Gemini models failed. Last error: {str(last_error)}")
 
 
 # =================================================================================
@@ -125,9 +146,7 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
     )
 
     try:
-        model = _get_model(temperature=0.3)
-        response = model.generate_content(prompt)
-        return response.text
+        return _call_gemini(prompt, temperature=0.3)
     except Exception as e:
         return f"⚠️ Summarization failed: {str(e)}"
 
@@ -174,9 +193,7 @@ def ask_literature(question: str, articles: list) -> str:
     )
 
     try:
-        model = _get_model(temperature=0.2)
-        response = model.generate_content(prompt)
-        return response.text
+        return _call_gemini(prompt, temperature=0.2)
     except Exception as e:
         return f"⚠️ Q&A failed: {str(e)}"
 
@@ -240,9 +257,7 @@ def generate_kol_briefing(
     )
 
     try:
-        model = _get_model(temperature=0.4)
-        response = model.generate_content(prompt)
-        return response.text
+        return _call_gemini(prompt, temperature=0.4)
     except Exception as e:
         return f"⚠️ Briefing generation failed: {str(e)}"
 
@@ -272,9 +287,7 @@ def extract_insights(field_notes: str) -> str:
     )
 
     try:
-        model = _get_model(temperature=0.3)
-        response = model.generate_content(prompt)
-        return response.text
+        return _call_gemini(prompt, temperature=0.3)
     except Exception as e:
         return f"⚠️ Insight extraction failed: {str(e)}"
 
@@ -334,8 +347,6 @@ def generate_activity_report(interactions: list) -> str:
     )
 
     try:
-        model = _get_model(temperature=0.4)
-        response = model.generate_content(prompt)
-        return response.text
+        return _call_gemini(prompt, temperature=0.4)
     except Exception as e:
         return f"⚠️ Report generation failed: {str(e)}"
