@@ -24,7 +24,6 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-# Model configuration
 GENERATION_CONFIG = {
     "temperature": 0.3,
     "top_p": 0.95,
@@ -59,7 +58,7 @@ def check_api_available():
         return False, "GOOGLE_API_KEY not configured"
     try:
         model = get_model()
-        response = model.generate_content("Say 'ok'")
+        response = model.generate_content("Say ok")
         return True, "Connected"
     except Exception as e:
         return False, str(e)
@@ -93,11 +92,11 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
         ),
         "bullet points": (
             "Provide a structured bullet-point summary with the following sections:\n"
-            "• **Objective:** (1-2 bullets)\n"
-            "• **Methods:** (2-3 bullets)\n"
-            "• **Key Findings:** (3-4 bullets)\n"
-            "• **Clinical Implications:** (1-2 bullets)\n"
-            "• **Limitations:** (1 bullet)\n"
+            "- **Objective:** (1-2 bullets)\n"
+            "- **Methods:** (2-3 bullets)\n"
+            "- **Key Findings:** (3-4 bullets)\n"
+            "- **Clinical Implications:** (1-2 bullets)\n"
+            "- **Limitations:** (1 bullet)\n"
             "Use precise scientific language."
         ),
         "hcp talking points": (
@@ -116,22 +115,19 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
         format_instructions["standard"]
     )
 
-    prompt = f"""You are a Medical Science Liaison AI assistant. Your role is to provide 
-accurate, balanced, and compliant scientific summaries.
-
-IMPORTANT RULES:
-- Do NOT use promotional language
-- Do NOT make comparative efficacy claims unless directly supported by the data
-- Do NOT minimize safety findings
-- Do NOT make absolute claims (e.g., "this drug cures...")
-- Present findings objectively and include limitations
-
-TASK: {instruction}
-
-ABSTRACT:
-{abstract}
-
-SUMMARY:"""
+    prompt = (
+        "You are a Medical Science Liaison AI assistant. Your role is to provide "
+        "accurate, balanced, and compliant scientific summaries.\n\n"
+        "IMPORTANT RULES:\n"
+        "- Do NOT use promotional language\n"
+        "- Do NOT make comparative efficacy claims unless directly supported by the data\n"
+        "- Do NOT minimize safety findings\n"
+        "- Do NOT make absolute claims (e.g., 'this drug cures...')\n"
+        "- Present findings objectively and include limitations\n\n"
+        f"TASK: {instruction}\n\n"
+        f"ABSTRACT:\n{abstract}\n\n"
+        "SUMMARY:"
+    )
 
     try:
         model = get_model(temperature=0.3)
@@ -179,23 +175,20 @@ def ask_question_over_articles(question: str, articles: list) -> str:
 
     context = "\n---\n".join(context_parts)
 
-    prompt = f"""You are a Medical Science Liaison AI assistant answering questions based on 
-scientific literature. 
-
-IMPORTANT RULES:
-- ONLY answer based on the provided articles below
-- Cite specific articles by number when making claims (e.g., [Article 1])
-- If the articles don't contain enough information to answer, say so clearly
-- Do NOT speculate beyond what the data shows
-- Do NOT use promotional language
-- Present findings objectively
-
-RETRIEVED ARTICLES:
-{context}
-
-QUESTION: {question}
-
-ANSWER (cite sources by article number):"""
+    prompt = (
+        "You are a Medical Science Liaison AI assistant answering questions based on "
+        "scientific literature.\n\n"
+        "IMPORTANT RULES:\n"
+        "- ONLY answer based on the provided articles below\n"
+        "- Cite specific articles by number when making claims (e.g., [Article 1])\n"
+        "- If the articles don't contain enough information to answer, say so clearly\n"
+        "- Do NOT speculate beyond what the data shows\n"
+        "- Do NOT use promotional language\n"
+        "- Present findings objectively\n\n"
+        f"RETRIEVED ARTICLES:\n{context}\n\n"
+        f"QUESTION: {question}\n\n"
+        "ANSWER (cite sources by article number):"
+    )
 
     try:
         model = get_model(temperature=0.2)
@@ -219,18 +212,6 @@ def generate_kol_briefing(
 ) -> str:
     """
     Generate a structured KOL briefing document.
-
-    Args:
-        kol_name: Name of the KOL
-        institution: KOL's institution
-        specialty: KOL's specialty/therapeutic area
-        field_notes: Raw field notes and context
-        interaction_type: Type of upcoming interaction
-        include_literature: Whether to include literature context
-        literature_results: Optional list of relevant articles
-
-    Returns:
-        Formatted markdown briefing document
     """
     if not GOOGLE_API_KEY:
         return "⚠️ Briefing generation requires GOOGLE_API_KEY. Please configure in environment variables."
@@ -244,53 +225,41 @@ def generate_kol_briefing(
                 f"- {article.get('title', 'Untitled')} "
                 f"({article.get('journal', '')}, {article.get('year', '')})"
             )
-        lit_context = f"\n\nRELEVANT RECENT LITERATURE:\n" + "\n".join(lit_parts)
+        lit_context = "\n\nRELEVANT RECENT LITERATURE:\n" + "\n".join(lit_parts)
 
-    prompt = f"""You are an AI assistant for Medical Science Liaisons. Generate a comprehensive 
-pre-meeting briefing document for an upcoming KOL interaction.
-
-IMPORTANT RULES:
-- All content must be compliant with FDA medical affairs guidance
-- Do NOT include promotional language
-- Focus on scientific exchange and medical education
-- Be factual and evidence-based
-- Flag any areas where additional information is needed
-
-KOL INFORMATION:
-- Name: {kol_name}
-- Institution: {institution}
-- Specialty: {specialty}
-- Upcoming Interaction Type: {interaction_type}
-
-FIELD NOTES / CONTEXT:
-{field_notes}
-{lit_context}
-
-Generate a structured briefing with the following 7 sections:
-
-## 1. KOL Profile Summary
-Brief overview of the KOL based on available information.
-
-## 2. Research Interests & Focus Areas
-Key scientific interests and therapeutic focus areas.
-
-## 3. Discussion History & Key Topics
-Summary of previous interactions and recurring themes.
-
-## 4. Recommended Discussion Points
-Suggested topics for the upcoming interaction (compliant, non-promotional).
-
-## 5. Relevant Literature
-Recent publications or data that may be relevant to discuss.
-
-## 6. Identified Unmet Needs
-Scientific or clinical unmet needs expressed by or relevant to this KOL.
-
-## 7. Relationship Notes & Follow-up Actions
-Relationship status, pending items, and recommended next steps.
-
----
-Generate the briefing now:"""
+    prompt = (
+        "You are an AI assistant for Medical Science Liaisons. Generate a comprehensive "
+        "pre-meeting briefing document for an upcoming KOL interaction.\n\n"
+        "IMPORTANT RULES:\n"
+        "- All content must be compliant with FDA medical affairs guidance\n"
+        "- Do NOT include promotional language\n"
+        "- Focus on scientific exchange and medical education\n"
+        "- Be factual and evidence-based\n"
+        "- Flag any areas where additional information is needed\n\n"
+        f"KOL INFORMATION:\n"
+        f"- Name: {kol_name}\n"
+        f"- Institution: {institution}\n"
+        f"- Specialty: {specialty}\n"
+        f"- Upcoming Interaction Type: {interaction_type}\n\n"
+        f"FIELD NOTES / CONTEXT:\n{field_notes}\n"
+        f"{lit_context}\n\n"
+        "Generate a structured briefing with the following 7 sections:\n\n"
+        "## 1. KOL Profile Summary\n"
+        "Brief overview of the KOL based on available information.\n\n"
+        "## 2. Research Interests & Focus Areas\n"
+        "Key scientific interests and therapeutic focus areas.\n\n"
+        "## 3. Discussion History & Key Topics\n"
+        "Summary of previous interactions and recurring themes.\n\n"
+        "## 4. Recommended Discussion Points\n"
+        "Suggested topics for the upcoming interaction (compliant, non-promotional).\n\n"
+        "## 5. Relevant Literature\n"
+        "Recent publications or data that may be relevant to discuss.\n\n"
+        "## 6. Identified Unmet Needs\n"
+        "Scientific or clinical unmet needs expressed by or relevant to this KOL.\n\n"
+        "## 7. Relationship Notes & Follow-up Actions\n"
+        "Relationship status, pending items, and recommended next steps.\n\n"
+        "---\nGenerate the briefing now:"
+    )
 
     try:
         model = get_model(temperature=0.4)
@@ -306,12 +275,6 @@ Generate the briefing now:"""
 def extract_insights(field_notes: str) -> str:
     """
     Extract structured insights from raw field notes.
-
-    Args:
-        field_notes: Unstructured field notes text
-
-    Returns:
-        Structured insights in markdown format
     """
     if not GOOGLE_API_KEY:
         return "⚠️ Insight extraction requires GOOGLE_API_KEY. Please configure in environment variables."
@@ -319,38 +282,31 @@ def extract_insights(field_notes: str) -> str:
     if not field_notes or field_notes.strip() == "":
         return "No field notes provided for analysis."
 
-    prompt = f"""You are an AI assistant for Medical Science Liaisons. Analyze the following 
-field notes and extract structured insights.
-
-FIELD NOTES:
-{field_notes}
-
-Extract and organize the following:
-
-### Key Scientific Insights
-- Main scientific topics discussed
-- Data or evidence mentioned
-
-### KOL Sentiment & Interests
-- KOL's attitude toward current treatments
-- Areas of scientific interest or curiosity
-- Concerns raised
-
-### Unmet Needs Identified
-- Clinical unmet needs mentioned
-- Research gaps identified
-- Patient population needs
-
-### Action Items
-- Follow-up items needed
-- Information requests
-- Suggested next steps
-
-### Compliance Notes
-- Any topics that require careful handling
-- Areas to avoid in future discussions
-
-Provide the analysis:"""
+    prompt = (
+        "You are an AI assistant for Medical Science Liaisons. Analyze the following "
+        "field notes and extract structured insights.\n\n"
+        f"FIELD NOTES:\n{field_notes}\n\n"
+        "Extract and organize the following:\n\n"
+        "### Key Scientific Insights\n"
+        "- Main scientific topics discussed\n"
+        "- Data or evidence mentioned\n\n"
+        "### KOL Sentiment & Interests\n"
+        "- KOL's attitude toward current treatments\n"
+        "- Areas of scientific interest or curiosity\n"
+        "- Concerns raised\n\n"
+        "### Unmet Needs Identified\n"
+        "- Clinical unmet needs mentioned\n"
+        "- Research gaps identified\n"
+        "- Patient population needs\n\n"
+        "### Action Items\n"
+        "- Follow-up items needed\n"
+        "- Information requests\n"
+        "- Suggested next steps\n\n"
+        "### Compliance Notes\n"
+        "- Any topics that require careful handling\n"
+        "- Areas to avoid in future discussions\n\n"
+        "Provide the analysis:"
+    )
 
     try:
         model = get_model(temperature=0.3)
@@ -366,12 +322,6 @@ Provide the analysis:"""
 def generate_activity_report(interactions: list) -> str:
     """
     Generate a leadership-ready MSL activity report.
-
-    Args:
-        interactions: List of interaction dicts
-
-    Returns:
-        Formatted markdown activity report
     """
     if not GOOGLE_API_KEY:
         return "⚠️ Report generation requires GOOGLE_API_KEY. Please configure in environment variables."
@@ -395,48 +345,44 @@ def generate_activity_report(interactions: list) -> str:
 
         notes = interaction.get("notes", "")
         if notes:
-            all_notes.append(f"- [{itype}] {interaction.get('kol_name', 'Unknown')}: {notes[:150]}")
+            all_notes.append(
+                f"- [{itype}] {interaction.get('kol_name', 'Unknown')}: {notes[:150]}"
+            )
 
-    types_summary = ", ".join([f"{k}: {v}" for k, v in sorted(types.items(), key=lambda x: -x[1])])
-    ta_summary = ", ".join([f"{k}: {v}" for k, v in sorted(therapeutic_areas.items(), key=lambda x: -x[1])])
+    types_summary = ", ".join(
+        [f"{k}: {v}" for k, v in sorted(types.items(), key=lambda x: -x[1])]
+    )
+    ta_summary = ", ".join(
+        [f"{k}: {v}" for k, v in sorted(therapeutic_areas.items(), key=lambda x: -x[1])]
+    )
     notes_sample = "\n".join(all_notes[:15])
 
-    prompt = f"""You are an AI assistant helping a Medical Science Liaison create an activity 
-report for their manager/leadership team.
-
-ACTIVITY DATA:
-- Total Interactions: {total}
-- Unique KOLs Engaged: {unique_kols}
-- Interaction Types: {types_summary}
-- Therapeutic Areas: {ta_summary}
-
-SAMPLE INTERACTION NOTES:
-{notes_sample}
-
-Generate a professional MSL activity report with:
-
-## Executive Summary
-2-3 sentence overview of the reporting period.
-
-## Key Metrics
-Present the quantitative data clearly.
-
-## Strategic Highlights
-Top 3-4 notable engagements or scientific exchanges.
-
-## Therapeutic Area Coverage
-Summary of activity across therapeutic areas.
-
-## Emerging Themes & Unmet Needs
-Scientific themes and unmet needs identified from KOL interactions.
-
-## Planned Next Steps
-Recommended actions for the next reporting period.
-
----
-*This report was auto-generated by MSL AI Copilot.*
-
-Generate the report:"""
+    prompt = (
+        "You are an AI assistant helping a Medical Science Liaison create an activity "
+        "report for their manager/leadership team.\n\n"
+        f"ACTIVITY DATA:\n"
+        f"- Total Interactions: {total}\n"
+        f"- Unique KOLs Engaged: {unique_kols}\n"
+        f"- Interaction Types: {types_summary}\n"
+        f"- Therapeutic Areas: {ta_summary}\n\n"
+        f"SAMPLE INTERACTION NOTES:\n{notes_sample}\n\n"
+        "Generate a professional MSL activity report with:\n\n"
+        "## Executive Summary\n"
+        "2-3 sentence overview of the reporting period.\n\n"
+        "## Key Metrics\n"
+        "Present the quantitative data clearly.\n\n"
+        "## Strategic Highlights\n"
+        "Top 3-4 notable engagements or scientific exchanges.\n\n"
+        "## Therapeutic Area Coverage\n"
+        "Summary of activity across therapeutic areas.\n\n"
+        "## Emerging Themes & Unmet Needs\n"
+        "Scientific themes and unmet needs identified from KOL interactions.\n\n"
+        "## Planned Next Steps\n"
+        "Recommended actions for the next reporting period.\n\n"
+        "---\n"
+        "*This report was auto-generated by MSL AI Copilot.*\n\n"
+        "Generate the report:"
+    )
 
     try:
         model = get_model(temperature=0.4)
