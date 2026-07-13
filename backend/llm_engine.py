@@ -37,15 +37,38 @@ SAFETY_SETTINGS = [
 
 
 def _get_model(temperature=0.3):
-    """Get configured Gemini model instance."""
+    """Get configured Gemini model instance with fallback."""
     config = GENERATION_CONFIG.copy()
     config["temperature"] = temperature
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-pro",
+
+    # Try models in order of preference (Pro first since you have Pro access)
+    model_names = [
+        "gemini-2.5-pro-preview-05-06",
+        "gemini-2.0-pro",
+        "gemini-1.5-pro-latest",
+        "gemini-1.5-pro",
+        "gemini-pro",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+    ]
+
+    for model_name in model_names:
+        try:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                generation_config=config,
+                safety_settings=SAFETY_SETTINGS,
+            )
+            return model
+        except Exception:
+            continue
+
+    # Absolute last resort
+    return genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
         generation_config=config,
         safety_settings=SAFETY_SETTINGS,
     )
-    return model
 
 
 # =================================================================================
