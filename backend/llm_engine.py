@@ -14,9 +14,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# =================================================================================
-# GEMINI CLIENT SETUP
-# =================================================================================
 import google.generativeai as genai
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -39,11 +36,10 @@ SAFETY_SETTINGS = [
 ]
 
 
-def get_model(temperature=0.3):
+def _get_model(temperature=0.3):
     """Get configured Gemini model instance."""
     config = GENERATION_CONFIG.copy()
     config["temperature"] = temperature
-
     model = genai.GenerativeModel(
         model_name="gemini-1.5-pro",
         generation_config=config,
@@ -52,32 +48,11 @@ def get_model(temperature=0.3):
     return model
 
 
-def check_api_available():
-    """Check if Gemini API is configured and available."""
-    if not GOOGLE_API_KEY:
-        return False, "GOOGLE_API_KEY not configured"
-    try:
-        model = get_model()
-        response = model.generate_content("Say ok")
-        return True, "Connected"
-    except Exception as e:
-        return False, str(e)
-
-
 # =================================================================================
 # ARTICLE SUMMARIZATION
 # =================================================================================
 def summarize_article(abstract: str, format_type: str = "standard") -> str:
-    """
-    Summarize a scientific article abstract using Gemini.
-
-    Args:
-        abstract: The article abstract text
-        format_type: One of 'standard', 'bullet points', 'hcp talking points'
-
-    Returns:
-        Formatted summary string
-    """
+    """Summarize a scientific article abstract using Gemini."""
     if not GOOGLE_API_KEY:
         return "⚠️ AI summarization requires GOOGLE_API_KEY. Please configure in environment variables."
 
@@ -110,10 +85,7 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
         ),
     }
 
-    instruction = format_instructions.get(
-        format_type.lower(),
-        format_instructions["standard"]
-    )
+    instruction = format_instructions.get(format_type.lower(), format_instructions["standard"])
 
     prompt = (
         "You are a Medical Science Liaison AI assistant. Your role is to provide "
@@ -122,7 +94,7 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
         "- Do NOT use promotional language\n"
         "- Do NOT make comparative efficacy claims unless directly supported by the data\n"
         "- Do NOT minimize safety findings\n"
-        "- Do NOT make absolute claims (e.g., 'this drug cures...')\n"
+        "- Do NOT make absolute claims\n"
         "- Present findings objectively and include limitations\n\n"
         f"TASK: {instruction}\n\n"
         f"ABSTRACT:\n{abstract}\n\n"
@@ -130,7 +102,7 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
     )
 
     try:
-        model = get_model(temperature=0.3)
+        model = _get_model(temperature=0.3)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
@@ -138,26 +110,16 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
 
 
 # =================================================================================
-# RAG-BASED Q&A OVER ARTICLES
+# RAG-BASED Q&A
 # =================================================================================
-def ask_question_over_articles(question: str, articles: list) -> str:
-    """
-    Answer a question using retrieved articles as context (RAG).
-
-    Args:
-        question: User's natural language question
-        articles: List of article dicts with 'title', 'abstract', etc.
-
-    Returns:
-        AI-generated answer grounded in the provided articles
-    """
+def ask_literature(question: str, articles: list) -> str:
+    """Answer a question using retrieved articles as context."""
     if not GOOGLE_API_KEY:
         return "⚠️ AI Q&A requires GOOGLE_API_KEY. Please configure in environment variables."
 
     if not articles:
-        return "No articles available to answer questions. Please search for articles first."
+        return "No articles available to answer questions."
 
-    # Build context from articles
     context_parts = []
     for i, article in enumerate(articles[:10], 1):
         title = article.get("title", "Untitled")
@@ -165,11 +127,9 @@ def ask_question_over_articles(question: str, articles: list) -> str:
         authors = article.get("authors", "Unknown")
         year = article.get("year", "")
         pmid = article.get("pmid", "")
-
         context_parts.append(
             f"[Article {i}] {title}\n"
-            f"Authors: {authors}\n"
-            f"Year: {year} | PMID: {pmid}\n"
+            f"Authors: {authors}\nYear: {year} | PMID: {pmid}\n"
             f"Abstract: {abstract}\n"
         )
 
@@ -181,7 +141,7 @@ def ask_question_over_articles(question: str, articles: list) -> str:
         "IMPORTANT RULES:\n"
         "- ONLY answer based on the provided articles below\n"
         "- Cite specific articles by number when making claims (e.g., [Article 1])\n"
-        "- If the articles don't contain enough information to answer, say so clearly\n"
+        "- If the articles don't contain enough information, say so clearly\n"
         "- Do NOT speculate beyond what the data shows\n"
         "- Do NOT use promotional language\n"
         "- Present findings objectively\n\n"
@@ -191,11 +151,16 @@ def ask_question_over_articles(question: str, articles: list) -> str:
     )
 
     try:
-        model = get_model(temperature=0.2)
+        model = _get_model(temperature=0.2)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         return f"⚠️ Q&A failed: {str(e)}"
+
+
+def build_rag_index(articles: list):
+    """Placeholder for FAISS index building - using direct context for now."""
+    return articles
 
 
 # =================================================================================
@@ -210,13 +175,10 @@ def generate_kol_briefing(
     include_literature: bool = False,
     literature_results: list = None,
 ) -> str:
-    """
-    Generate a structured KOL briefing document.
-    """
+    """Generate a structured KOL briefing document."""
     if not GOOGLE_API_KEY:
         return "⚠️ Briefing generation requires GOOGLE_API_KEY. Please configure in environment variables."
 
-    # Build literature context if available
     lit_context = ""
     if include_literature and literature_results:
         lit_parts = []
@@ -245,24 +207,17 @@ def generate_kol_briefing(
         f"{lit_context}\n\n"
         "Generate a structured briefing with the following 7 sections:\n\n"
         "## 1. KOL Profile Summary\n"
-        "Brief overview of the KOL based on available information.\n\n"
         "## 2. Research Interests & Focus Areas\n"
-        "Key scientific interests and therapeutic focus areas.\n\n"
         "## 3. Discussion History & Key Topics\n"
-        "Summary of previous interactions and recurring themes.\n\n"
         "## 4. Recommended Discussion Points\n"
-        "Suggested topics for the upcoming interaction (compliant, non-promotional).\n\n"
         "## 5. Relevant Literature\n"
-        "Recent publications or data that may be relevant to discuss.\n\n"
         "## 6. Identified Unmet Needs\n"
-        "Scientific or clinical unmet needs expressed by or relevant to this KOL.\n\n"
-        "## 7. Relationship Notes & Follow-up Actions\n"
-        "Relationship status, pending items, and recommended next steps.\n\n"
-        "---\nGenerate the briefing now:"
+        "## 7. Relationship Notes & Follow-up Actions\n\n"
+        "Generate the briefing now:"
     )
 
     try:
-        model = get_model(temperature=0.4)
+        model = _get_model(temperature=0.4)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
@@ -273,11 +228,9 @@ def generate_kol_briefing(
 # INSIGHT EXTRACTION
 # =================================================================================
 def extract_insights(field_notes: str) -> str:
-    """
-    Extract structured insights from raw field notes.
-    """
+    """Extract structured insights from raw field notes."""
     if not GOOGLE_API_KEY:
-        return "⚠️ Insight extraction requires GOOGLE_API_KEY. Please configure in environment variables."
+        return "⚠️ Insight extraction requires GOOGLE_API_KEY."
 
     if not field_notes or field_notes.strip() == "":
         return "No field notes provided for analysis."
@@ -286,50 +239,39 @@ def extract_insights(field_notes: str) -> str:
         "You are an AI assistant for Medical Science Liaisons. Analyze the following "
         "field notes and extract structured insights.\n\n"
         f"FIELD NOTES:\n{field_notes}\n\n"
-        "Extract and organize the following:\n\n"
+        "Extract and organize:\n"
         "### Key Scientific Insights\n"
-        "- Main scientific topics discussed\n"
-        "- Data or evidence mentioned\n\n"
         "### KOL Sentiment & Interests\n"
-        "- KOL's attitude toward current treatments\n"
-        "- Areas of scientific interest or curiosity\n"
-        "- Concerns raised\n\n"
         "### Unmet Needs Identified\n"
-        "- Clinical unmet needs mentioned\n"
-        "- Research gaps identified\n"
-        "- Patient population needs\n\n"
         "### Action Items\n"
-        "- Follow-up items needed\n"
-        "- Information requests\n"
-        "- Suggested next steps\n\n"
-        "### Compliance Notes\n"
-        "- Any topics that require careful handling\n"
-        "- Areas to avoid in future discussions\n\n"
+        "### Compliance Notes\n\n"
         "Provide the analysis:"
     )
 
     try:
-        model = get_model(temperature=0.3)
+        model = _get_model(temperature=0.3)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         return f"⚠️ Insight extraction failed: {str(e)}"
 
 
+def extract_insights_from_notes(field_notes: str) -> str:
+    """Alias for extract_insights."""
+    return extract_insights(field_notes)
+
+
 # =================================================================================
 # ACTIVITY REPORT GENERATION
 # =================================================================================
 def generate_activity_report(interactions: list) -> str:
-    """
-    Generate a leadership-ready MSL activity report.
-    """
+    """Generate a leadership-ready MSL activity report."""
     if not GOOGLE_API_KEY:
-        return "⚠️ Report generation requires GOOGLE_API_KEY. Please configure in environment variables."
+        return "⚠️ Report generation requires GOOGLE_API_KEY."
 
     if not interactions:
         return "No interactions available to generate a report."
 
-    # Summarize interactions for the prompt
     total = len(interactions)
     unique_kols = len(set(i.get("kol_name", "") for i in interactions))
     types = {}
@@ -339,22 +281,14 @@ def generate_activity_report(interactions: list) -> str:
     for interaction in interactions:
         itype = interaction.get("type", "Unknown")
         types[itype] = types.get(itype, 0) + 1
-
         ta = interaction.get("therapeutic_area", "Unknown")
         therapeutic_areas[ta] = therapeutic_areas.get(ta, 0) + 1
-
         notes = interaction.get("notes", "")
         if notes:
-            all_notes.append(
-                f"- [{itype}] {interaction.get('kol_name', 'Unknown')}: {notes[:150]}"
-            )
+            all_notes.append(f"- [{itype}] {interaction.get('kol_name', 'Unknown')}: {notes[:150]}")
 
-    types_summary = ", ".join(
-        [f"{k}: {v}" for k, v in sorted(types.items(), key=lambda x: -x[1])]
-    )
-    ta_summary = ", ".join(
-        [f"{k}: {v}" for k, v in sorted(therapeutic_areas.items(), key=lambda x: -x[1])]
-    )
+    types_summary = ", ".join([f"{k}: {v}" for k, v in sorted(types.items(), key=lambda x: -x[1])])
+    ta_summary = ", ".join([f"{k}: {v}" for k, v in sorted(therapeutic_areas.items(), key=lambda x: -x[1])])
     notes_sample = "\n".join(all_notes[:15])
 
     prompt = (
@@ -366,26 +300,18 @@ def generate_activity_report(interactions: list) -> str:
         f"- Interaction Types: {types_summary}\n"
         f"- Therapeutic Areas: {ta_summary}\n\n"
         f"SAMPLE INTERACTION NOTES:\n{notes_sample}\n\n"
-        "Generate a professional MSL activity report with:\n\n"
+        "Generate a professional MSL activity report with:\n"
         "## Executive Summary\n"
-        "2-3 sentence overview of the reporting period.\n\n"
         "## Key Metrics\n"
-        "Present the quantitative data clearly.\n\n"
         "## Strategic Highlights\n"
-        "Top 3-4 notable engagements or scientific exchanges.\n\n"
         "## Therapeutic Area Coverage\n"
-        "Summary of activity across therapeutic areas.\n\n"
         "## Emerging Themes & Unmet Needs\n"
-        "Scientific themes and unmet needs identified from KOL interactions.\n\n"
-        "## Planned Next Steps\n"
-        "Recommended actions for the next reporting period.\n\n"
-        "---\n"
-        "*This report was auto-generated by MSL AI Copilot.*\n\n"
+        "## Planned Next Steps\n\n"
         "Generate the report:"
     )
 
     try:
-        model = get_model(temperature=0.4)
+        model = _get_model(temperature=0.4)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
