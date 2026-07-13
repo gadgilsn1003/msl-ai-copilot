@@ -42,7 +42,6 @@ st.markdown("""
         max-width: 1200px;
     }
 
-    /* Page Header */
     .page-header {
         display: flex;
         align-items: center;
@@ -75,139 +74,6 @@ st.markdown("""
         margin: 4px 0 0 0;
     }
 
-    /* Search Panel */
-    .search-panel {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 28px;
-        margin-bottom: 24px;
-    }
-
-    .search-panel-title {
-        font-size: 15px;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    /* Result Card */
-    .result-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 24px;
-        margin-bottom: 16px;
-        transition: all 0.2s ease;
-    }
-
-    .result-card:hover {
-        border-color: #0ea5e9;
-        box-shadow: 0 4px 16px rgba(14, 165, 233, 0.08);
-    }
-
-    .result-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 8px;
-        line-height: 1.4;
-    }
-
-    .result-meta {
-        font-size: 12px;
-        color: #64748b;
-        margin-bottom: 10px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-    }
-
-    .result-meta span {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-
-    .result-abstract {
-        font-size: 13px;
-        color: #475569;
-        line-height: 1.7;
-        margin-bottom: 12px;
-    }
-
-    .result-badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 6px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-
-    .badge-rct { background: #dbeafe; color: #1d4ed8; }
-    .badge-review { background: #fae8ff; color: #a21caf; }
-    .badge-meta { background: #dcfce7; color: #166534; }
-    .badge-observational { background: #fef3c7; color: #92400e; }
-    .badge-default { background: #f1f5f9; color: #475569; }
-
-    /* Compliance Alert */
-    .compliance-pass {
-        background: #f0fdf4;
-        border: 1px solid #86efac;
-        border-radius: 10px;
-        padding: 12px 16px;
-        font-size: 13px;
-        color: #166534;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 12px;
-    }
-
-    .compliance-flag {
-        background: #fef2f2;
-        border: 1px solid #fca5a5;
-        border-radius: 10px;
-        padding: 12px 16px;
-        font-size: 13px;
-        color: #991b1b;
-        margin-top: 12px;
-    }
-
-    .compliance-flag-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 4px 0;
-    }
-
-    /* Summary Box */
-    .summary-box {
-        background: linear-gradient(135deg, #f0f9ff, #f8fafc);
-        border: 1px solid #bae6fd;
-        border-radius: 14px;
-        padding: 24px;
-        margin-top: 16px;
-    }
-
-    .summary-box h4 {
-        font-size: 14px;
-        font-weight: 700;
-        color: #0369a1;
-        margin: 0 0 12px 0;
-    }
-
-    .summary-box p {
-        font-size: 14px;
-        color: #334155;
-        line-height: 1.7;
-        margin: 0;
-    }
-
-    /* Empty State */
     .empty-state {
         text-align: center;
         padding: 60px 20px;
@@ -232,7 +98,6 @@ st.markdown("""
         margin: 0;
     }
 
-    /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
         color: white !important;
@@ -250,7 +115,6 @@ st.markdown("""
         box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3) !important;
     }
 
-    /* Sidebar */
     [data-testid="stSidebar"] {
         background: #ffffff;
         border-right: 1px solid #e2e8f0;
@@ -271,19 +135,6 @@ st.markdown("""
         transform: none !important;
     }
 
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 8px 16px;
-        font-weight: 600;
-        font-size: 13px;
-    }
-
-    /* Hide Streamlit chrome */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -294,12 +145,16 @@ st.markdown("""
 # IMPORTS - Backend modules
 # =================================================================================
 try:
-    from backend.pubmed_fetcher import search_pubmed, fetch_article_details
-    from backend.llm_engine import summarize_article, ask_question_over_articles
-    from backend.compliance_filter import screen_content
+    from backend.pubmed_fetcher import search_pubmed, fetch_articles
+    from backend.llm_engine import summarize_article, ask_literature
+    from backend.compliance_filter import scan_text
     BACKEND_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     BACKEND_AVAILABLE = False
+    st.error(f"Backend import failed: {e}")
+except Exception as e:
+    BACKEND_AVAILABLE = False
+    st.error(f"Backend error: {e}")
 
 # =================================================================================
 # SIDEBAR
@@ -341,7 +196,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Library section
     st.markdown("**📁 Saved Library**")
     if "saved_articles" not in st.session_state:
         st.session_state.saved_articles = []
@@ -367,7 +221,6 @@ st.markdown("---")
 # =================================================================================
 # SEARCH INTERFACE
 # =================================================================================
-# Search input
 if selected_ta != "Custom":
     default_query = therapeutic_areas[selected_ta]
 else:
@@ -424,13 +277,11 @@ if "search_results" in st.session_state and st.session_state.search_results:
     st.markdown(f"**{len(results)} articles found** for: `{st.session_state.get('current_query', '')}`")
     st.markdown("")
 
-    # Tabs for different views
     tab_results, tab_qa, tab_library = st.tabs(["📄 Results", "🤖 AI Q&A", "📁 Saved Library"])
 
     with tab_results:
         for i, article in enumerate(results):
             with st.container():
-                # Article header
                 col_title, col_save = st.columns([6, 1])
 
                 with col_title:
@@ -442,22 +293,19 @@ if "search_results" in st.session_state and st.session_state.search_results:
                             st.session_state.saved_articles.append(article)
                             st.toast("Article saved to library!", icon="✅")
 
-                # Metadata
-                authors = article.get('authors', 'Unknown authors')
-                journal = article.get('journal', 'Unknown journal')
-                year = article.get('year', '')
-                pmid = article.get('pmid', '')
+                authors = article.get("authors", "Unknown authors")
+                journal = article.get("journal", "Unknown journal")
+                year = article.get("year", "")
+                pmid = article.get("pmid", "")
 
-                st.caption(f"👥 {authors[:100]}{'...' if len(str(authors)) > 100 else ''}")
+                st.caption(f"👥 {str(authors)[:100]}{'...' if len(str(authors)) > 100 else ''}")
                 st.caption(f"📰 {journal} · {year} · PMID: {pmid}")
 
-                # Abstract
-                abstract = article.get('abstract', '')
+                abstract = article.get("abstract", "")
                 if abstract:
                     with st.expander("View Abstract"):
                         st.write(abstract)
 
-                        # Summarize button
                         summary_format = st.selectbox(
                             "Summary format",
                             ["Standard", "Bullet Points", "HCP Talking Points"],
@@ -465,15 +313,17 @@ if "search_results" in st.session_state and st.session_state.search_results:
                         )
 
                         if st.button("🧠 AI Summarize", key=f"sum_{i}"):
-                            if not os.getenv("OPENAI_API_KEY"):
-                                st.warning("OpenAI API key required for AI summarization.")
+                            if not os.getenv("GOOGLE_API_KEY"):
+                                st.warning("Google Gemini API key required for AI summarization.")
                             else:
                                 with st.spinner("Generating summary..."):
                                     try:
-                                        summary = summarize_article(abstract, format_type=summary_format.lower())
+                                        summary = summarize_article(
+                                            abstract,
+                                            format_type=summary_format.lower()
+                                        )
 
-                                        # Compliance check
-                                        compliance_result = screen_content(summary)
+                                        compliance_result = scan_text(summary)
 
                                         st.markdown("---")
                                         st.markdown(f"**AI Summary ({summary_format})**")
@@ -501,18 +351,17 @@ if "search_results" in st.session_state and st.session_state.search_results:
         )
 
         if st.button("Get Answer", key="btn_qa") and question:
-            if not os.getenv("OPENAI_API_KEY"):
-                st.warning("OpenAI API key required for AI Q&A.")
+            if not os.getenv("GOOGLE_API_KEY"):
+                st.warning("Google Gemini API key required for AI Q&A.")
             else:
                 with st.spinner("Analyzing articles..."):
                     try:
-                        answer = ask_question_over_articles(question, results)
+                        answer = ask_literature(question, results)
 
                         st.markdown("**Answer:**")
                         st.write(answer)
 
-                        # Compliance check on answer
-                        compliance_result = screen_content(answer)
+                        compliance_result = scan_text(answer)
                         if compliance_result.get("passed", True):
                             st.success("✅ Compliance check passed")
                         else:
@@ -539,7 +388,6 @@ if "search_results" in st.session_state and st.session_state.search_results:
                         st.rerun()
                 st.markdown("---")
 
-            # Export
             if st.button("📥 Export Library as CSV", key="export_csv"):
                 import pandas as pd
                 df = pd.DataFrame(st.session_state.saved_articles)
@@ -564,7 +412,6 @@ elif "search_results" in st.session_state and not st.session_state.search_result
     st.info("No results found. Try adjusting your search terms.")
 
 else:
-    # Empty state
     st.markdown("""
     <div class="empty-state">
         <div class="empty-state-icon">🔍</div>
@@ -573,7 +420,6 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    # Quick start suggestions
     st.markdown("---")
     st.markdown("**💡 Try these searches:**")
 
