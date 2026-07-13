@@ -1,280 +1,275 @@
 """
-backend/database.py
-SQLite-based local database for MSL AI Copilot.
-Stores KOL profiles, field interaction logs, saved articles, and insights.
-Falls back to SQLite if Supabase is not configured.
+🗄️ Database Module - SQLite CRUD & Analytics
+
+Handles persistent storage for:
+- KOL interactions
+- KOL profiles
+- Saved articles
+- Dashboard analytics queries
 """
 
-import os
 import sqlite3
+import os
 import json
 from datetime import datetime
-from pathlib import Path
-from typing import Optional
-
-DB_PATH = Path("msl_copilot.db")
 
 
-def get_connection() -> sqlite3.Connection:
-    """Get SQLite connection with row factory for dict-like access."""
-    conn = sqlite3.connect(str(DB_PATH))
+# =================================================================================
+# DATABASE SETUP
+# =================================================================================
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "msl_copilot.db")
+
+
+def get_connection():
+    """Get SQLite database connection."""
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db():
-    """Initialize all database tables. Run once on app startup."""
+def init_database():
+    """Initialize database tables if they don't exist."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.executescript("""
+    # KOL Profiles table
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS kol_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            specialty TEXT,
             institution TEXT,
+            specialty TEXT,
             therapeutic_area TEXT,
-            email TEXT,
+            tier TEXT,
             notes TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
-        );
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
-        CREATE TABLE IF NOT EXISTS field_interactions (
+    # Interactions table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS interactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kol_id INTEGER REFERENCES kol_profiles(id),
-            kol_name TEXT,
-            interaction_date TEXT,
-            interaction_type TEXT,
+            kol_name TEXT NOT NULL,
+            type TEXT,
+            date TEXT,
+            therapeutic_area TEXT,
             notes TEXT,
-            topics_discussed TEXT,
-            unmet_needs TEXT,
-            action_items TEXT,
-            insight_analysis TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
+            followup TEXT,
+            logged_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
+    # Saved articles table
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS saved_articles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            pmid TEXT UNIQUE,
+            pmid TEXT,
             title TEXT,
-            abstract TEXT,
             authors TEXT,
             journal TEXT,
-            pub_date TEXT,
-            doi TEXT,
-            url TEXT,
-            ai_summary TEXT,
-            compliance_status TEXT,
-            therapeutic_area TEXT,
-            saved_at TEXT DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS kol_briefings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kol_id INTEGER REFERENCES kol_profiles(id),
-            kol_name TEXT,
-            briefing_content TEXT,
-            meeting_date TEXT,
-            therapeutic_area TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS msl_insights (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_interaction_id INTEGER,
-            insight_type TEXT,
-            insight_text TEXT,
-            therapeutic_area TEXT,
-            kol_name TEXT,
-            flagged_for_review INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
+            year TEXT,
+            abstract TEXT,
+            study_type TEXT,
+            saved_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
     """)
+
     conn.commit()
     conn.close()
 
 
-# ── KOL Profile CRUD ───────────────────────────────────────────────────────────────────
+# Initialize on import
+init_database()
 
-def add_kol(name: str, specialty: str, institution: str,
-            therapeutic_area: str, notes: str = "", email: str = "") -> int:
+
+# =================================================================================
+# KOL PROFILES
+# =================================================================================
+def save_kol_profile(profile: dict) -> int:
+    """Save a KOL profile to the database."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO kol_profiles (name, specialty, institution, therapeutic_area, email, notes)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (name, specialty, institution, therapeutic_area, email, notes)
-    )
+
+    cursor.execute("""
+        INSERT INTO kol_profiles (name, institution, specialty, therapeutic_area, tier, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        profile.get("name", ""),
+        profile.get("institution", ""),
+        profile.get("specialty", ""),
+        profile.get("therapeutic_area", ""),
+        profile.get("tier", ""),
+        profile.get("notes", ""),
+    ))
+
     conn.commit()
-    kol_id = cursor.lastrowid
+    profile_id = cursor.lastrowid
     conn.close()
-    return kol_id
+    return profile_id
 
 
-def get_all_kols() -> list:
+def get_all_kol_profiles() -> list:
+    """Get all KOL profiles."""
     conn = get_connection()
     cursor = conn.cursor()
+
     cursor.execute("SELECT * FROM kol_profiles ORDER BY name")
-    rows = [dict(row) for row in cursor.fetchall()]
+    rows = cursor.fetchall()
     conn.close()
-    return rows
+
+    return [dict(row) for row in rows]
 
 
-def get_kol_by_id(kol_id: int) -> Optional[dict]:
+def get_kol_profile(name: str) -> dict:
+    """Get a specific KOL profile by name."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM kol_profiles WHERE id = ?", (kol_id,))
+
+    cursor.execute("SELECT * FROM kol_profiles WHERE name LIKE ?", (f"%{name}%",))
     row = cursor.fetchone()
     conn.close()
+
     return dict(row) if row else None
 
 
-def search_kols(query: str) -> list:
+# =================================================================================
+# INTERACTIONS
+# =================================================================================
+def save_interaction(interaction: dict) -> int:
+    """Save an interaction to the database."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM kol_profiles WHERE name LIKE ? OR institution LIKE ? OR specialty LIKE ?",
-        (f"%{query}%", f"%{query}%", f"%{query}%")
-    )
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
 
+    cursor.execute("""
+        INSERT INTO interactions (kol_name, type, date, therapeutic_area, notes, followup)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        interaction.get("kol_name", ""),
+        interaction.get("type", ""),
+        interaction.get("date", ""),
+        interaction.get("therapeutic_area", ""),
+        interaction.get("notes", ""),
+        interaction.get("followup", ""),
+    ))
 
-# ── Field Interaction CRUD ───────────────────────────────────────────────────────────
-
-def log_interaction(kol_name: str, interaction_date: str, interaction_type: str,
-                    notes: str, topics: list = None, unmet_needs: str = "",
-                    action_items: str = "", insight_analysis: str = "",
-                    kol_id: Optional[int] = None) -> int:
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO field_interactions
-           (kol_id, kol_name, interaction_date, interaction_type, notes,
-            topics_discussed, unmet_needs, action_items, insight_analysis)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (kol_id, kol_name, interaction_date, interaction_type, notes,
-         json.dumps(topics or []), unmet_needs, action_items, insight_analysis)
-    )
     conn.commit()
     interaction_id = cursor.lastrowid
     conn.close()
     return interaction_id
 
 
-def get_interactions_by_kol(kol_name: str) -> list:
+def get_all_interactions() -> list:
+    """Get all interactions."""
     conn = get_connection()
     cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM interactions ORDER BY date DESC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
+
+
+def get_interactions_by_kol(kol_name: str) -> list:
+    """Get all interactions for a specific KOL."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
     cursor.execute(
-        "SELECT * FROM field_interactions WHERE kol_name LIKE ? ORDER BY interaction_date DESC",
+        "SELECT * FROM interactions WHERE kol_name LIKE ? ORDER BY date DESC",
         (f"%{kol_name}%",)
     )
-    rows = [dict(row) for row in cursor.fetchall()]
+    rows = cursor.fetchall()
     conn.close()
-    return rows
+
+    return [dict(row) for row in rows]
 
 
-def get_all_interactions(limit: int = 100) -> list:
+# =================================================================================
+# SAVED ARTICLES
+# =================================================================================
+def save_article(article: dict) -> int:
+    """Save an article to the library."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM field_interactions ORDER BY interaction_date DESC LIMIT ?", (limit,)
-    )
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
-
-
-# ── Saved Articles CRUD ──────────────────────────────────────────────────────────────
-
-def save_article(article_dict: dict, ai_summary: str = "",
-                compliance_status: str = "UNCHECKED",
-                therapeutic_area: str = "") -> bool:
-    conn = get_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            """INSERT OR REPLACE INTO saved_articles
-               (pmid, title, abstract, authors, journal, pub_date, doi, url,
-                ai_summary, compliance_status, therapeutic_area)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (article_dict.get("pmid"), article_dict.get("title"),
-             article_dict.get("abstract"), article_dict.get("authors"),
-             article_dict.get("journal"), article_dict.get("pub_date"),
-             article_dict.get("doi"), article_dict.get("url"),
-             ai_summary, compliance_status, therapeutic_area)
-        )
-        conn.commit()
-        return True
-    except Exception as e:
-        print(f"[DB Error] save_article: {e}")
-        return False
-    finally:
-        conn.close()
-
-
-def get_saved_articles(therapeutic_area: Optional[str] = None) -> list:
-    conn = get_connection()
-    cursor = conn.cursor()
-    if therapeutic_area:
-        cursor.execute(
-            "SELECT * FROM saved_articles WHERE therapeutic_area = ? ORDER BY saved_at DESC",
-            (therapeutic_area,)
-        )
-    else:
-        cursor.execute("SELECT * FROM saved_articles ORDER BY saved_at DESC")
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return rows
-
-
-# ── Analytics Queries for Impact Dashboard ─────────────────────────────────────────
-
-def get_interaction_stats() -> dict:
-    """Aggregate stats for the Impact Dashboard."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    stats = {}
-
-    cursor.execute("SELECT COUNT(*) as total FROM field_interactions")
-    stats["total_interactions"] = cursor.fetchone()["total"]
-
-    cursor.execute("SELECT COUNT(DISTINCT kol_name) as total FROM field_interactions")
-    stats["unique_kols"] = cursor.fetchone()["total"]
-
-    cursor.execute("SELECT COUNT(*) as total FROM saved_articles")
-    stats["saved_articles"] = cursor.fetchone()["total"]
 
     cursor.execute("""
-        SELECT kol_name, COUNT(*) as count
-        FROM field_interactions
-        GROUP BY kol_name
+        INSERT INTO saved_articles (pmid, title, authors, journal, year, abstract, study_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (
+        article.get("pmid", ""),
+        article.get("title", ""),
+        article.get("authors", ""),
+        article.get("journal", ""),
+        article.get("year", ""),
+        article.get("abstract", ""),
+        article.get("study_type", ""),
+    ))
+
+    conn.commit()
+    article_id = cursor.lastrowid
+    conn.close()
+    return article_id
+
+
+def get_saved_articles() -> list:
+    """Get all saved articles."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM saved_articles ORDER BY saved_at DESC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(row) for row in rows]
+
+
+# =================================================================================
+# DASHBOARD ANALYTICS
+# =================================================================================
+def get_dashboard_stats() -> dict:
+    """Get aggregated stats for the dashboard."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Total interactions
+    cursor.execute("SELECT COUNT(*) as count FROM interactions")
+    total_interactions = cursor.fetchone()["count"]
+
+    # Unique KOLs
+    cursor.execute("SELECT COUNT(DISTINCT kol_name) as count FROM interactions")
+    unique_kols = cursor.fetchone()["count"]
+
+    # Saved articles
+    cursor.execute("SELECT COUNT(*) as count FROM saved_articles")
+    saved_articles = cursor.fetchone()["count"]
+
+    # Interactions by type
+    cursor.execute("""
+        SELECT type, COUNT(*) as count
+        FROM interactions
+        GROUP BY type
         ORDER BY count DESC
-        LIMIT 10
     """)
-    stats["top_kols"] = [{"kol": row["kol_name"], "count": row["count"]}
-                         for row in cursor.fetchall()]
+    by_type = [dict(row) for row in cursor.fetchall()]
 
+    # Interactions by therapeutic area
     cursor.execute("""
-        SELECT interaction_type, COUNT(*) as count
-        FROM field_interactions
-        GROUP BY interaction_type
+        SELECT therapeutic_area, COUNT(*) as count
+        FROM interactions
+        GROUP BY therapeutic_area
+        ORDER BY count DESC
     """)
-    stats["by_type"] = [{"type": row["interaction_type"], "count": row["count"]}
-                        for row in cursor.fetchall()]
-
-    cursor.execute("""
-        SELECT strftime('%Y-%m', interaction_date) as month, COUNT(*) as count
-        FROM field_interactions
-        GROUP BY month
-        ORDER BY month DESC
-        LIMIT 12
-    """)
-    stats["by_month"] = [{"month": row["month"], "count": row["count"]}
-                         for row in cursor.fetchall()]
+    by_ta = [dict(row) for row in cursor.fetchall()]
 
     conn.close()
-    return stats
+
+    return {
+        "total_interactions": total_interactions,
+        "unique_kols": unique_kols,
+        "saved_articles": saved_articles,
+        "by_type": by_type,
+        "by_therapeutic_area": by_ta,
+    }
