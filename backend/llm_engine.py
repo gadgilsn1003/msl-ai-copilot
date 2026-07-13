@@ -35,12 +35,11 @@ SAFETY_SETTINGS = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
 
-# Model preference order - will try each until one works
+# Supported current-generation models to try sequentially
 MODEL_NAMES = [
-    "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-1.5-pro-latest",
-    "gemini-pro",
+    "gemini-1.5-pro",
+    "gemini-2.0-flash",
 ]
 
 # Cache the working model name so we don't retry every call
@@ -68,10 +67,10 @@ def _call_gemini(prompt: str, temperature: float = 0.3) -> str:
             response = model.generate_content(prompt)
             return response.text
         except Exception:
-            # Model stopped working, reset and try all again
+            # Model stopped working or rate-limited, reset and fall back to the loop
             _working_model_name = None
 
-    # Try each model until one works
+    # Try each model in sequence until one works
     last_error = None
     for model_name in MODEL_NAMES:
         try:
@@ -81,7 +80,7 @@ def _call_gemini(prompt: str, temperature: float = 0.3) -> str:
                 safety_settings=SAFETY_SETTINGS,
             )
             response = model.generate_content(prompt)
-            # Success! Cache this model name
+            # Success! Cache this model name for future calls
             _working_model_name = model_name
             return response.text
         except Exception as e:
@@ -125,7 +124,7 @@ def summarize_article(abstract: str, format_type: str = "standard") -> str:
             "- Be compliant (no promotional language, no comparative claims without data)\n"
             "- Be conversational yet scientifically rigorous\n"
             "- Include relevant statistics where available\n"
-            "Format as numbered talking points."
+            "- Format as numbered talking points."
         ),
     }
 
