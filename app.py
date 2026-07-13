@@ -1,15 +1,12 @@
 """
-🧬 MSL AI Copilot – Main Entry Point
-
-Production-ready landing page with professional branding,
-feature highlights, and navigation to all three modules.
+MSL AI Copilot - Main Entry Point
+Production-ready landing page with professional branding.
 """
 
 import streamlit as st
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 # =================================================================================
@@ -25,12 +22,10 @@ st.set_page_config(
 # =================================================================================
 # PRODUCTION CSS
 # =================================================================================
-st.markdown("""
+CUSTOM_CSS = """
 <style>
-    /* Import professional font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-    /* Global */
     .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         background: #f8fafc;
@@ -41,7 +36,6 @@ st.markdown("""
         max-width: 1200px;
     }
 
-    /* Hero */
     .hero {
         background: linear-gradient(160deg, #0f172a 0%, #1e293b 40%, #0f172a 100%);
         padding: 72px 48px;
@@ -120,7 +114,6 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Stats Grid */
     .stats-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -159,7 +152,6 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
 
-    /* Section Header */
     .section-hdr {
         text-align: center;
         margin: 0 0 32px 0;
@@ -180,7 +172,6 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Module Cards */
     .module-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
@@ -264,7 +255,6 @@ st.markdown("""
         flex-shrink: 0;
     }
 
-    /* Tech Stack */
     .tech-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -295,7 +285,6 @@ st.markdown("""
         margin-bottom: 6px;
     }
 
-    /* Compliance Banner */
     .compliance-banner {
         background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
         border: 1px solid #86efac;
@@ -326,7 +315,6 @@ st.markdown("""
         line-height: 1.6;
     }
 
-    /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
         color: white !important;
@@ -350,7 +338,6 @@ st.markdown("""
         transform: translateY(0) !important;
     }
 
-    /* Sidebar */
     [data-testid="stSidebar"] {
         background: #ffffff;
         border-right: 1px solid #e2e8f0;
@@ -372,7 +359,6 @@ st.markdown("""
         transform: none !important;
     }
 
-    /* Footer */
     .app-footer {
         text-align: center;
         padding: 28px 20px;
@@ -392,7 +378,6 @@ st.markdown("""
         font-weight: 700;
     }
 
-    /* Responsive */
     @media (max-width: 768px) {
         .stats-grid { grid-template-columns: repeat(2, 1fr); }
         .hero-title { font-size: 32px; }
@@ -400,12 +385,13 @@ st.markdown("""
         .block-container { padding: 1rem 1.5rem; }
     }
 
-    /* Hide Streamlit chrome */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 </style>
-""", unsafe_allow_html=True)
+"""
+
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # =================================================================================
 # SIDEBAR
@@ -427,7 +413,6 @@ with st.sidebar:
 
     st.markdown("**System Status**")
 
-    # Check API key status
     openai_key = os.getenv("OPENAI_API_KEY")
     ncbi_key = os.getenv("NCBI_API_KEY")
 
@@ -447,7 +432,7 @@ with st.sidebar:
 # =================================================================================
 # HERO
 # =================================================================================
-st.markdown("""
+hero_html = """
 <div class="hero">
     <div class="hero-badge">⚡ AI-POWERED SCIENTIFIC INTELLIGENCE</div>
     <h1 class="hero-title">MSL AI <span class="accent">Copilot</span></h1>
@@ -456,12 +441,13 @@ st.markdown("""
         Literature analysis, KOL profiling, and impact measurement — unified in one intelligent platform.
     </p>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(hero_html, unsafe_allow_html=True)
 
 # =================================================================================
 # STATS
 # =================================================================================
-st.markdown("""
+stats_html = """
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-value">10x</div>
@@ -480,22 +466,24 @@ st.markdown("""
         <div class="stat-label">Integrated Modules</div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(stats_html, unsafe_allow_html=True)
 
 # =================================================================================
 # MODULES SECTION
 # =================================================================================
-st.markdown("""
+section_header_html = """
 <div class="section-hdr">
     <h2>Core Modules</h2>
     <p>Purpose-built tools for every stage of the MSL workflow</p>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(section_header_html, unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3, gap="medium")
 
 with col1:
-    st.markdown("""
+    lit_card_html = """
     <div class="module-card">
         <div class="module-icon">📚</div>
         <div class="module-title">Literature Intelligence</div>
@@ -508,15 +496,16 @@ with col1:
             <li>3 summary formats (Standard, Bullets, HCP Talking Points)</li>
             <li>LangChain + FAISS RAG pipeline</li>
             <li>Compliance-screened outputs</li>
-            <li>CSV export & library saving</li>
+            <li>CSV export and library saving</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(lit_card_html, unsafe_allow_html=True)
     if st.button("Open Literature Module →", use_container_width=True, key="mod_lit"):
         st.switch_page("pages/1_Literature_Intelligence.py")
 
 with col2:
-    st.markdown("""
+    kol_card_html = """
     <div class="module-card">
         <div class="module-icon">👤</div>
         <div class="module-title">KOL Briefing Generator</div>
@@ -532,12 +521,13 @@ with col2:
             <li>Markdown export for offline use</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(kol_card_html, unsafe_allow_html=True)
     if st.button("Open KOL Briefing →", use_container_width=True, key="mod_kol"):
         st.switch_page("pages/2_KOL_Briefing_Generator.py")
 
 with col3:
-    st.markdown("""
+    dash_card_html = """
     <div class="module-card">
         <div class="module-icon">📊</div>
         <div class="module-title">Impact Dashboard</div>
@@ -546,24 +536,121 @@ with col3:
             leadership-ready reports with interactive analytics.
         </div>
         <ul class="module-features">
-            <li>KPI metrics & activity tracking</li>
+            <li>KPI metrics and activity tracking</li>
             <li>Interactive Plotly visualizations</li>
             <li>Unmet needs theme analysis</li>
             <li>Auto-generated activity reports</li>
             <li>Demo mode with sample data</li>
         </ul>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(dash_card_html, unsafe_allow_html=True)
     if st.button("Open Dashboard →", use_container_width=True, key="mod_dash"):
         st.switch_page("pages/3_Impact_Dashboard.py")
 
 # =================================================================================
 # COMPLIANCE BANNER
 # =================================================================================
-st.markdown("""
+compliance_html = """
 <div class="compliance-banner">
     <div class="compliance-icon">🛡️</div>
     <div class="compliance-text">
         <h4>Built-In Regulatory Compliance</h4>
         <p>
-            All AI-generated content is automatically screened against FDA 21 CFR Part 202
+            All AI-generated content is automatically screened against FDA 21 CFR Part 202 and PhRMA Code guidelines.
+            The engine flags off-label promotion, comparative efficacy claims, absolute claims, safety minimization,
+            and promotional language with three-tier severity scoring (HIGH / MEDIUM / LOW).
+        </p>
+    </div>
+</div>
+"""
+st.markdown(compliance_html, unsafe_allow_html=True)
+
+# =================================================================================
+# TECH STACK
+# =================================================================================
+tech_header_html = """
+<div class="section-hdr">
+    <h2>Technology Stack</h2>
+    <p>Enterprise-grade components powering the platform</p>
+</div>
+"""
+st.markdown(tech_header_html, unsafe_allow_html=True)
+
+tech_grid_html = """
+<div class="tech-grid">
+    <div class="tech-chip">
+        <span class="tech-icon">🎯</span>
+        Streamlit
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">🧠</span>
+        GPT-4o
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">🔗</span>
+        LangChain
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">📐</span>
+        FAISS
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">📖</span>
+        PubMed API
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">📊</span>
+        Plotly
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">🗄️</span>
+        SQLite
+    </div>
+    <div class="tech-chip">
+        <span class="tech-icon">🐍</span>
+        Python 3.10+
+    </div>
+</div>
+"""
+st.markdown(tech_grid_html, unsafe_allow_html=True)
+
+# =================================================================================
+# GET STARTED
+# =================================================================================
+st.markdown("---")
+
+get_started_html = """
+<div class="section-hdr">
+    <h2>Get Started</h2>
+    <p>Select a module to begin</p>
+</div>
+"""
+st.markdown(get_started_html, unsafe_allow_html=True)
+
+c1, c2, c3 = st.columns(3, gap="medium")
+
+with c1:
+    if st.button("📚 Literature Intelligence", use_container_width=True, key="gs_lit"):
+        st.switch_page("pages/1_Literature_Intelligence.py")
+
+with c2:
+    if st.button("👤 KOL Briefing Generator", use_container_width=True, key="gs_kol"):
+        st.switch_page("pages/2_KOL_Briefing_Generator.py")
+
+with c3:
+    if st.button("📊 Impact Dashboard", use_container_width=True, key="gs_dash"):
+        st.switch_page("pages/3_Impact_Dashboard.py")
+
+# =================================================================================
+# FOOTER
+# =================================================================================
+footer_html = """
+<div class="app-footer">
+    <p>
+        <span class="brand">MSL AI Copilot</span> · Built with Streamlit, OpenAI GPT-4o and NCBI PubMed APIs<br/>
+        Designed for Medical Science Liaisons · Compliance-first architecture · MIT License
+    </p>
+</div>
+"""
+st.markdown(footer_html, unsafe_allow_html=True)
