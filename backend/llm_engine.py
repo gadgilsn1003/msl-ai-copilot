@@ -35,11 +35,11 @@ SAFETY_SETTINGS = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
 ]
 
-# Supported current-generation models to try sequentially
+# Supported 2026 current-generation models to try sequentially
 MODEL_NAMES = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash",
+    "gemini-3.5-flash",        # Google's newest and most capable production model
+    "gemini-2.5-flash",        # Highly stable fallback workhorse
+    "gemini-3.1-flash-lite",   # Ultra-fast, budget-sensitive fallback
 ]
 
 # Cache the working model name so we don't retry every call
