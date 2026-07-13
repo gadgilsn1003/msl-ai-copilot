@@ -1,152 +1,223 @@
 """
-backend/pubmed_fetcher.py
-PubMed / NCBI Entrez API integration for MSL AI Copilot.
+📖 PubMed Fetcher - NCBI Entrez API Integration
+
+Handles searching PubMed and fetching article details
+using the Biopython Entrez module.
 """
 
 import os
-import time
-from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Configure Entrez
 from Bio import Entrez
-from dataclasses import dataclass, field
 
-Entrez.email = os.getenv("NCBI_EMAIL", "msl-copilot@example.com")
-_ncbi_api_key = os.getenv("NCBI_API_KEY", "")
-if _ncbi_api_key:
-    Entrez.api_key = _ncbi_api_key
+NCBI_EMAIL = os.getenv("NCBI_EMAIL", "msl-copilot@example.com")
+NCBI_API_KEY = os.getenv("NCBI_API_KEY", None)
 
-@dataclass
-class PubMedArticle:
-    pmid: str
-    title: str
-    abstract: str
-    authors: list
-    journal: str
-    pub_date: str
-    doi: str
-    url: str
-    keywords: list = field(default_factory=list)
-    mesh_terms: list = field(default_factory=list)
-
-    def to_dict(self):
-        return {
-            "pmid": self.pmid,
-            "title": self.title,
-            "abstract": self.abstract,
-            "authors": ", ".join(self.authors[:3]) + (" et al." if len(self.authors) > 3 else ""),
-            "journal": self.journal,
-            "pub_date": self.pub_date,
-            "doi": self.doi,
-            "url": self.url,
-            "keywords": self.keywords,
-            "mesh_terms": self.mesh_terms,
-        }
+Entrez.email = NCBI_EMAIL
+if NCBI_API_KEY:
+    Entrez.api_key = NCBI_API_KEY
 
 
-def search_pubmed(query: str, max_results: int = 20,
-                 date_range: Optional[tuple] = None, sort_by: str = "relevance") -> list:
-    sort_map = {"relevance": "relevance", "pub_date": "pub+date"}
-    mindate, maxdate = None, None
-    if date_range:
-        start, end = date_range
-        mindate, maxdate = str(start), str(end)
+def search_pubmed(query: str, max_results: int = 15, sort: str = "relevance") -> list:
+    """
+    Search PubMed and return article details.
+
+    Args:
+        query: PubMed search query (supports MeSH syntax)
+        max_results: Maximum number of results to return
+        sort: Sort order - 'relevance' or 'date'
+
+    Returns:
+        List of article dictionaries
+    """
+    if not query or query.strip() == "":
+        return []
+
     try:
-        kwargs = dict(
+        # Search PubMed for IDs
+        handle = Entrez.esearch(
             db="pubmed",
             term=query,
-            retmax=min(max_results, 100),
-            sort=sort_map.get(sort_by, "relevance")
+            retmax=max_results,
+            sort=sort,
+            retmode="xml"
         )
-        if mindate and maxdate:
-            kwargs["datetype"] = "pdat"
-            kwargs["mindate"] = mindate
-            kwargs["maxdate"] = maxdate
-        handle = Entrez.esearch(**kwargs)
-        record = Entrez.read(handle)
+        search_results = Entrez.read(handle)
         handle.close()
-        return record.get("IdList", [])
+
+        id_list = search_results.get("IdList", [])
+
+        if not id_list:
+            return []
+
+        # Fetch article details
+        articles = fetch_article_details(id_list)
+        return articles
+
     except Exception as e:
-        print(f"[PubMed Search Error] {e}")
+        raise Exception(f"PubMed search failed: {str(e)}")
+
+
+def fetch_article_details(pmid_list: list) -> list:
+    """
+    Fetch detailed article information for a list of PMIDs.
+
+    Args:
+        pmid_list: List of PubMed IDs
+
+    Returns:
+        List of article dictionaries with full details
+    """
+    if not pmid_list:
         return []
 
-
-def fetch_articles(pmids: list) -> list:
-    if not pmids:
-        return []
-    articles = []
-    for i in range(0, len(pmids), 20):
-        chunk = pmids[i:i + 20]
-        try:
-            handle = Entrez.efetch(db="pubmed", id=",".join(chunk),
-                                   rettype="xml", retmode="xml")
-            records = Entrez.read(handle)
-            handle.close()
-            for record in records.get("PubmedArticle", []):
-                article = _parse_article(record)
-                if article:
-                    articles.append(article)
-            time.sleep(0.1 if Entrez.api_key else 0.34)
-        except Exception as e:
-            print(f"[PubMed Fetch Error] {e}")
-    return articles
-
-
-def _parse_article(record: dict) -> Optional[PubMedArticle]:
     try:
-        medline = record["MedlineCitation"]
-        article = medline["Article"]
-        pmid = str(medline["PMID"])
-        title = str(article.get("ArticleTitle", "No title"))
-        abstract_obj = article.get("Abstract", {})
-        if isinstance(abstract_obj, dict):
-            abstract_texts = abstract_obj.get("AbstractText", [])
-            if isinstance(abstract_texts, list):
-                abstract = " ".join(str(t) for t in abstract_texts)
-            else:
-                abstract = str(abstract_texts)
+        handle = Entrez.efetch(
+            db="pubmed",
+            id=",".join(pmid_list),
+            rettype="xml",
+            retmode="xml"
+        )
+        records = Entrez.read(handle)
+        handle.close()
+
+        articles = []
+
+        for article_data in records.get("PubmedArticle", []):
+            article = parse_article(article_data)
+            if article:
+                articles.append(article)
+
+        return articles
+
+    except Exception as e:
+        raise Exception(f"Failed to fetch article details: {str(e)}")
+
+
+def parse_article(article_data: dict) -> dict:
+    """
+    Parse a single PubMed article record into a clean dictionary.
+
+    Args:
+        article_data: Raw PubMed article data
+
+    Returns:
+        Cleaned article dictionary
+    """
+    try:
+        medline = article_data.get("MedlineCitation", {})
+        article_info = medline.get("Article", {})
+        pmid = str(medline.get("PMID", ""))
+
+        # Title
+        title = str(article_info.get("ArticleTitle", "Untitled"))
+
+        # Authors
+        author_list = article_info.get("AuthorList", [])
+        authors = []
+        for author in author_list:
+            last_name = author.get("LastName", "")
+            first_name = author.get("ForeName", "")
+            if last_name:
+                authors.append(f"{last_name} {first_name}".strip())
+
+        authors_str = ", ".join(authors[:5])
+        if len(authors) > 5:
+            authors_str += f" et al. ({len(authors)} authors)"
+
+        # Journal
+        journal_info = article_info.get("Journal", {})
+        journal = str(journal_info.get("Title", "Unknown Journal"))
+
+        # Year
+        pub_date = article_info.get("Journal", {}).get("JournalIssue", {}).get("PubDate", {})
+        year = str(pub_date.get("Year", ""))
+        if not year:
+            medline_date = pub_date.get("MedlineDate", "")
+            if medline_date:
+                year = medline_date[:4]
+
+        # Abstract
+        abstract_parts = article_info.get("Abstract", {}).get("AbstractText", [])
+        if abstract_parts:
+            abstract = " ".join([str(part) for part in abstract_parts])
         else:
             abstract = ""
-        authors = []
-        for auth in article.get("AuthorList", []):
-            last = auth.get("LastName", "")
-            fore = auth.get("ForeName", "")
-            if last:
-                authors.append(f"{last} {fore}".strip())
-        journal_info = article.get("Journal", {})
-        journal = str(journal_info.get("Title", "Unknown Journal"))
-        pub_date_raw = journal_info.get("JournalIssue", {}).get("PubDate", {})
-        year = pub_date_raw.get("Year", pub_date_raw.get("MedlineDate", "N/A"))
-        month = pub_date_raw.get("Month", "")
-        pub_date = f"{month} {year}".strip()
+
+        # Publication type
+        pub_types = article_info.get("PublicationTypeList", [])
+        pub_type_list = [str(pt) for pt in pub_types]
+
+        # Classify study type
+        study_type = classify_study_type(pub_type_list, title, abstract)
+
+        # MeSH terms
+        mesh_list = medline.get("MeshHeadingList", [])
+        mesh_terms = []
+        for mesh in mesh_list:
+            descriptor = mesh.get("DescriptorName", "")
+            if descriptor:
+                mesh_terms.append(str(descriptor))
+
+        # DOI
         doi = ""
-        for id_item in record.get("PubmedData", {}).get("ArticleIdList", []):
-            if str(id_item.attributes.get("IdType")) == "doi":
-                doi = str(id_item)
+        article_ids = article_data.get("PubmedData", {}).get("ArticleIdList", [])
+        for aid in article_ids:
+            if hasattr(aid, "attributes") and aid.attributes.get("IdType") == "doi":
+                doi = str(aid)
                 break
-        kw_list = medline.get("KeywordList", [])
-        keywords = [str(k) for k in (kw_list[0] if kw_list else [])]
-        mesh_terms = [str(m["DescriptorName"]) for m in medline.get("MeshHeadingList", [])]
-        return PubMedArticle(pmid=pmid, title=title, abstract=abstract,
-                             authors=authors, journal=journal, pub_date=pub_date,
-                             doi=doi, url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-                             keywords=keywords, mesh_terms=mesh_terms)
-    except Exception as e:
-        print(f"[Parse Error] {e}")
+
+        return {
+            "pmid": pmid,
+            "title": title,
+            "authors": authors_str,
+            "journal": journal,
+            "year": year,
+            "abstract": abstract,
+            "pub_types": pub_type_list,
+            "study_type": study_type,
+            "mesh_terms": mesh_terms,
+            "doi": doi,
+        }
+
+    except Exception:
         return None
 
 
-def search_and_fetch(query: str, max_results: int = 20,
-                    date_range: Optional[tuple] = None, sort_by: str = "relevance") -> list:
-    """Convenience wrapper: search then fetch."""
-    pmids = search_pubmed(query, max_results, date_range, sort_by)
-    return fetch_articles(pmids)
+def classify_study_type(pub_types: list, title: str, abstract: str) -> str:
+    """
+    Classify the study type based on publication types and content.
 
+    Args:
+        pub_types: List of publication type strings
+        title: Article title
+        abstract: Article abstract
 
-# Pre-built MSL therapeutic area queries
-THERAPEUTIC_AREA_QUERIES = {
-    "Oncology": "cancer[MeSH] OR tumor[MeSH] OR neoplasm[MeSH]",
-    "Neurology": "neurology[MeSH] OR neurological disorders[MeSH]",
-    "Cardiology": "cardiovascular diseases[MeSH] OR heart failure[MeSH]",
-    "Immunology": "immunology[MeSH] OR autoimmune diseases[MeSH]",
-    "Rare Disease": "rare diseases[MeSH] OR orphan drugs[tiab]",
-    "GBM / Neuro-Oncology": "glioblastoma[MeSH] OR glioma[MeSH] OR brain neoplasms[MeSH]",
-}
+    Returns:
+        Study type classification string
+    """
+    title_lower = title.lower()
+    abstract_lower = abstract.lower()
+    pub_types_lower = [pt.lower() for pt in pub_types]
+
+    if "meta-analysis" in pub_types_lower or "meta-analysis" in title_lower:
+        return "Meta-Analysis"
+    elif "systematic review" in title_lower or "systematic review" in abstract_lower:
+        return "Systematic Review"
+    elif "randomized controlled trial" in pub_types_lower:
+        return "RCT"
+    elif "clinical trial" in pub_types_lower or "clinical trial" in title_lower:
+        return "Clinical Trial"
+    elif "review" in pub_types_lower:
+        return "Review"
+    elif "case reports" in pub_types_lower:
+        return "Case Report"
+    elif any(term in abstract_lower for term in ["cohort", "retrospective", "prospective", "observational"]):
+        return "Observational"
+    elif any(term in abstract_lower for term in ["in vitro", "in vivo", "preclinical", "mouse", "rat"]):
+        return "Preclinical"
+    else:
+        return "Other"
