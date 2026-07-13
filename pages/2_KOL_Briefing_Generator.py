@@ -1,8 +1,5 @@
 """
 👤 KOL Briefing Generator Module
-
-Generate comprehensive, compliant briefing documents for KOL interactions
-based on field notes, publication history, and research focus.
 """
 
 import streamlit as st
@@ -14,9 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# =================================================================================
-# PAGE CONFIG
-# =================================================================================
 st.set_page_config(
     page_title="MSL AI Copilot · KOL Briefing Generator",
     page_icon="👤",
@@ -24,209 +18,32 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# =================================================================================
-# PAGE CSS
-# =================================================================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-    .stApp {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        background: #f8fafc;
-    }
-
-    .block-container {
-        padding: 2rem 3rem;
-        max-width: 1200px;
-    }
-
-    /* Page Header */
-    .page-header {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 8px;
-    }
-
-    .page-header-icon {
-        width: 52px;
-        height: 52px;
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.04));
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 26px;
-    }
-
-    .page-header-text h1 {
-        font-size: 28px;
-        font-weight: 800;
-        color: #0f172a;
-        margin: 0;
-        letter-spacing: -0.5px;
-    }
-
-    .page-header-text p {
-        font-size: 14px;
-        color: #64748b;
-        margin: 4px 0 0 0;
-    }
-
-    /* KOL Card */
-    .kol-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 20px;
-        margin-bottom: 12px;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-
-    .kol-card:hover {
-        border-color: #8b5cf6;
-        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.1);
-    }
-
-    .kol-name {
-        font-size: 15px;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 4px;
-    }
-
-    .kol-meta {
-        font-size: 12px;
-        color: #64748b;
-    }
-
-    /* Briefing Section */
-    .briefing-section {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 24px;
-        margin-bottom: 16px;
-    }
-
-    .briefing-section h3 {
-        font-size: 16px;
-        font-weight: 700;
-        color: #0f172a;
-        margin: 0 0 12px 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .briefing-section p {
-        font-size: 14px;
-        color: #475569;
-        line-height: 1.7;
-        margin: 0;
-    }
-
-    /* Interaction Log */
-    .interaction-item {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 10px;
-        border-left: 3px solid #8b5cf6;
-    }
-
-    .interaction-type {
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #8b5cf6;
-        margin-bottom: 4px;
-    }
-
-    .interaction-notes {
-        font-size: 13px;
-        color: #475569;
-        line-height: 1.6;
-    }
-
-    .interaction-date {
-        font-size: 11px;
-        color: #94a3b8;
-        margin-top: 6px;
-    }
-
-    /* Empty State */
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #94a3b8;
-    }
-
-    .empty-state-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-        opacity: 0.5;
-    }
-
-    .empty-state h3 {
-        font-size: 18px;
-        font-weight: 600;
-        color: #64748b;
-        margin: 0 0 8px 0;
-    }
-
-    .empty-state p {
-        font-size: 14px;
-        margin: 0;
-    }
-
-    /* Buttons */
-    .stButton > button {
-        background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
-        color: white !important;
-        border: none !important;
-        padding: 10px 20px !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2) !important;
-    }
-
-    .stButton > button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3) !important;
-    }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: #ffffff;
-        border-right: 1px solid #e2e8f0;
-    }
-
-    [data-testid="stSidebar"] .stButton > button {
-        background: transparent !important;
-        color: #334155 !important;
-        border: 1px solid #e2e8f0 !important;
-        box-shadow: none !important;
-        font-weight: 500 !important;
-    }
-
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(139, 92, 246, 0.06) !important;
-        border-color: #8b5cf6 !important;
-        color: #8b5cf6 !important;
-        transform: none !important;
-    }
-
-    /* Hide Streamlit chrome */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    .stApp { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; }
+    .block-container { padding: 2rem 3rem; max-width: 1200px; }
+    .page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+    .page-header-icon { width: 52px; height: 52px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.04)); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .page-header-text h1 { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
+    .page-header-text p { font-size: 14px; color: #64748b; margin: 4px 0 0 0; }
+    .interaction-item { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 10px; border-left: 3px solid #8b5cf6; }
+    .interaction-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #8b5cf6; margin-bottom: 4px; }
+    .kol-name { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .interaction-notes { font-size: 13px; color: #475569; line-height: 1.6; }
+    .interaction-date { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+    .kol-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 12px; }
+    .kol-meta { font-size: 12px; color: #64748b; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-state h3 { font-size: 18px; font-weight: 600; color: #64748b; margin: 0 0 8px 0; }
+    .empty-state p { font-size: 14px; margin: 0; }
+    .stButton > button { background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important; color: white !important; border: none !important; padding: 10px 20px !important; font-size: 13px !important; font-weight: 600 !important; border-radius: 8px !important; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2) !important; }
+    .stButton > button:hover { transform: translateY(-1px) !important; box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3) !important; }
+    [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e2e8f0; }
+    [data-testid="stSidebar"] .stButton > button { background: transparent !important; color: #334155 !important; border: 1px solid #e2e8f0 !important; box-shadow: none !important; font-weight: 500 !important; }
+    [data-testid="stSidebar"] .stButton > button:hover { background: rgba(139, 92, 246, 0.06) !important; border-color: #8b5cf6 !important; color: #8b5cf6 !important; transform: none !important; }
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -235,24 +52,23 @@ st.markdown("""
 # =================================================================================
 try:
     from backend.llm_engine import generate_kol_briefing, extract_insights
-    from backend.compliance_filter import screen_content
-    from backend.database import (
-        save_interaction, get_interactions_by_kol,
-        save_kol_profile, get_all_kol_profiles, get_kol_profile
-    )
+    from backend.compliance_filter import scan_text
+    from backend.database import log_interaction, get_all_kols, add_kol
     BACKEND_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     BACKEND_AVAILABLE = False
+    st.error(f"Backend import failed: {e}")
+except Exception as e:
+    BACKEND_AVAILABLE = False
+    st.error(f"Backend error: {e}")
 
 # =================================================================================
 # SESSION STATE
 # =================================================================================
 if "kol_interactions" not in st.session_state:
     st.session_state.kol_interactions = []
-
 if "kol_profiles" not in st.session_state:
     st.session_state.kol_profiles = []
-
 if "current_briefing" not in st.session_state:
     st.session_state.current_briefing = None
 
@@ -272,13 +88,11 @@ with st.sidebar:
         st.switch_page("pages/3_Impact_Dashboard.py")
 
     st.markdown("---")
-
     st.markdown("**KOL Profiles**")
 
-    # Load profiles
     if BACKEND_AVAILABLE:
         try:
-            profiles = get_all_kol_profiles()
+            profiles = get_all_kols()
             if profiles:
                 for profile in profiles:
                     st.markdown(f"• **{profile['name']}**")
@@ -310,9 +124,6 @@ st.markdown("---")
 # =================================================================================
 tab_briefing, tab_log, tab_profiles = st.tabs(["📋 Generate Briefing", "📝 Log Interaction", "👥 KOL Profiles"])
 
-# =================================================================================
-# TAB 1: GENERATE BRIEFING
-# =================================================================================
 with tab_briefing:
     st.markdown("### Generate Pre-Meeting Briefing")
     st.caption("Enter KOL details and field notes to generate a structured, compliant briefing document.")
@@ -321,7 +132,6 @@ with tab_briefing:
 
     with col_input:
         st.markdown("**KOL Information**")
-
         kol_name = st.text_input("KOL Name", placeholder="e.g., Dr. Sarah Chen", key="kol_name")
         kol_institution = st.text_input("Institution", placeholder="e.g., Memorial Sloan Kettering", key="kol_inst")
         kol_specialty = st.text_input("Specialty / Therapeutic Area", placeholder="e.g., Neuro-Oncology", key="kol_spec")
@@ -331,7 +141,7 @@ with tab_briefing:
 
         field_notes = st.text_area(
             "Meeting Notes / Context",
-            placeholder="Paste your field notes, previous interaction summaries, or any context about this KOL...\n\nExample:\n- Met at ASCO 2024, discussed GBM treatment landscape\n- Interested in novel immunotherapy combinations\n- Raised concerns about BBB penetration of new agents\n- Currently running Phase II trial on tumor-treating fields",
+            placeholder="Paste your field notes, previous interaction summaries, or any context...",
             height=200,
             key="field_notes"
         )
@@ -347,8 +157,8 @@ with tab_briefing:
         if st.button("🧠 Generate Briefing", use_container_width=True, key="gen_briefing"):
             if not kol_name or not field_notes:
                 st.warning("Please enter KOL name and field notes.")
-            elif not os.getenv("OPENAI_API_KEY"):
-                st.error("OpenAI API key required. Configure in environment variables.")
+            elif not os.getenv("GOOGLE_API_KEY"):
+                st.error("Google Gemini API key required. Configure in environment variables.")
             elif not BACKEND_AVAILABLE:
                 st.error("Backend modules not available.")
             else:
@@ -363,8 +173,7 @@ with tab_briefing:
                             include_literature=include_literature
                         )
 
-                        # Compliance screen
-                        compliance_result = screen_content(briefing)
+                        compliance_result = scan_text(briefing)
 
                         st.session_state.current_briefing = {
                             "content": briefing,
@@ -372,7 +181,6 @@ with tab_briefing:
                             "kol_name": kol_name,
                             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M")
                         }
-
                     except Exception as e:
                         st.error(f"Briefing generation failed: {str(e)}")
 
@@ -383,7 +191,6 @@ with tab_briefing:
             st.markdown(f"**Briefing for {briefing_data['kol_name']}**")
             st.caption(f"Generated: {briefing_data['generated_at']}")
 
-            # Compliance status
             if briefing_data["compliance"].get("passed", True):
                 st.success("✅ Compliance screening passed")
             else:
@@ -392,13 +199,9 @@ with tab_briefing:
                     st.write(f"- **[{flag['severity']}]** {flag['message']}")
 
             st.markdown("---")
-
-            # Display briefing
             st.markdown(briefing_data["content"])
-
             st.markdown("---")
 
-            # Export options
             col_export1, col_export2 = st.columns(2)
             with col_export1:
                 st.download_button(
@@ -412,7 +215,6 @@ with tab_briefing:
             with col_export2:
                 if st.button("💾 Save to Profile", use_container_width=True, key="save_profile"):
                     st.toast("Briefing saved to KOL profile!", icon="✅")
-
         else:
             st.markdown("""
             <div class="empty-state">
@@ -422,9 +224,6 @@ with tab_briefing:
             </div>
             """, unsafe_allow_html=True)
 
-# =================================================================================
-# TAB 2: LOG INTERACTION
-# =================================================================================
 with tab_log:
     st.markdown("### Log Field Interaction")
     st.caption("Record KOL interactions for tracking and future briefing enrichment.")
@@ -451,7 +250,7 @@ with tab_log:
                 height=150,
                 key="log_notes"
             )
-            log_followup = st.text_input("Follow-up Actions", placeholder="e.g., Send Phase III data, schedule follow-up call", key="log_followup")
+            log_followup = st.text_input("Follow-up Actions", placeholder="e.g., Send Phase III data", key="log_followup")
 
             submitted = st.form_submit_button("📝 Log Interaction", use_container_width=True)
 
@@ -470,7 +269,7 @@ with tab_log:
 
                     if BACKEND_AVAILABLE:
                         try:
-                            save_interaction(interaction)
+                            log_interaction(interaction)
                         except Exception:
                             pass
 
@@ -485,7 +284,7 @@ with tab_log:
             for interaction in reversed(st.session_state.kol_interactions[-10:]):
                 st.markdown(f"""
                 <div class="interaction-item">
-                    <div class="interaction-type">{interaction['type']} · {interaction['therapeutic_area']}</div>
+                    <div class="interaction-type">{interaction['type']} · {interaction.get('therapeutic_area', '')}</div>
                     <div class="kol-name">{interaction['kol_name']}</div>
                     <div class="interaction-notes">{interaction['notes'][:200]}{'...' if len(interaction['notes']) > 200 else ''}</div>
                     <div class="interaction-date">📅 {interaction['date']}</div>
@@ -500,9 +299,6 @@ with tab_log:
             </div>
             """, unsafe_allow_html=True)
 
-# =================================================================================
-# TAB 3: KOL PROFILES
-# =================================================================================
 with tab_profiles:
     st.markdown("### KOL Profile Library")
     st.caption("Manage your KOL profiles and view interaction history.")
@@ -538,7 +334,7 @@ with tab_profiles:
 
                     if BACKEND_AVAILABLE:
                         try:
-                            save_kol_profile(profile)
+                            add_kol(profile)
                         except Exception:
                             pass
 
